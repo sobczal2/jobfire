@@ -1,2 +1,2 @@
 mod error;
-mod job;
+pub mod job;

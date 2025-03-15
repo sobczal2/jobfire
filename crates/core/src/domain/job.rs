@@ -5,35 +5,50 @@ use chrono::{DateTime, Utc};
 use getset::Getters;
 use uuid::Uuid;
 
-pub(crate) trait Context: Sized + Clone + Send + Sync + 'static {}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct JobId(Uuid);
+
+impl JobId {
+    pub fn new() -> Self {
+        Self(Uuid::now_v7())
+    }
+}
+
+pub trait JobContext: Sized + Clone + Send + Sync + 'static {}
 
 #[async_trait]
-pub(crate) trait JobImpl<T: Context>: Send + Sync {
-    async fn run(&self, contaxt: T) -> Result<Report, Error>;
+pub trait JobImpl<T: JobContext>: Send + Sync {
+    async fn run(&self, context: T) -> Result<Report, Error>;
     async fn on_fail(&self, context: T);
     async fn on_success(&self, context: T);
 }
 
-pub(crate) struct Error {
+pub struct Error {
     message: String,
 }
 
-pub(crate) struct Report {}
+pub struct Report {}
 
-pub(crate) struct Progress;
+impl Report {
+    pub fn new() -> Self {
+        Report {}
+    }
+}
+
+pub struct Progress;
 
 #[derive(Clone, Getters)]
 #[getset(get = "pub")]
-pub(crate) struct PendingJob<T: Context> {
-    id: Uuid,
+pub struct PendingJob<T: JobContext> {
+    id: JobId,
     created_at: DateTime<Utc>,
     scheduled_at: DateTime<Utc>,
     r#impl: Arc<dyn JobImpl<T>>,
 }
 
-impl<T: Context> PendingJob<T> {
+impl<T: JobContext> PendingJob<T> {
     pub(crate) fn new(
-        id: Uuid,
+        id: JobId,
         created_at: DateTime<Utc>,
         scheduled_at: DateTime<Utc>,
         r#impl: Arc<dyn JobImpl<T>>,
@@ -45,17 +60,21 @@ impl<T: Context> PendingJob<T> {
             r#impl,
         }
     }
+
+    pub fn new_at(scheduled_at: DateTime<Utc>, r#impl: Arc<dyn JobImpl<T>>) -> Self {
+        Self::new(JobId::new(), Utc::now(), scheduled_at, r#impl)
+    }
 }
 
-pub(crate) struct RunningJob<T: Context> {
-    id: Uuid,
+pub struct RunningJob<T: JobContext> {
+    id: JobId,
     created_at: DateTime<Utc>,
     started_at: DateTime<Utc>,
     phantom_data: PhantomData<T>,
 }
 
-impl<T: Context> RunningJob<T> {
-    pub(crate) fn new(id: Uuid, created_at: DateTime<Utc>, started_at: DateTime<Utc>) -> Self {
+impl<T: JobContext> RunningJob<T> {
+    pub fn new(id: JobId, created_at: DateTime<Utc>, started_at: DateTime<Utc>) -> Self {
         Self {
             id,
             created_at,
@@ -65,17 +84,17 @@ impl<T: Context> RunningJob<T> {
     }
 }
 
-pub(crate) struct SuccessfulJob<T: Context> {
-    id: Uuid,
+pub struct SuccessfulJob<T: JobContext> {
+    id: JobId,
     created_at: DateTime<Utc>,
     finished_at: DateTime<Utc>,
     report: Report,
     phantom_data: PhantomData<T>,
 }
 
-impl<T: Context> SuccessfulJob<T> {
-    pub(crate) fn new(
-        id: Uuid,
+impl<T: JobContext> SuccessfulJob<T> {
+    pub fn new(
+        id: JobId,
         created_at: DateTime<Utc>,
         finished_at: DateTime<Utc>,
         report: Report,
@@ -90,17 +109,17 @@ impl<T: Context> SuccessfulJob<T> {
     }
 }
 
-pub(crate) struct FailedJob<T: Context> {
-    id: Uuid,
+pub struct FailedJob<T: JobContext> {
+    id: JobId,
     created_at: DateTime<Utc>,
     finished_at: DateTime<Utc>,
     error: Error,
     phantom_data: PhantomData<T>,
 }
 
-impl<T: Context> FailedJob<T> {
-    pub(crate) fn new(
-        id: Uuid,
+impl<T: JobContext> FailedJob<T> {
+    pub fn new(
+        id: JobId,
         created_at: DateTime<Utc>,
         finished_at: DateTime<Utc>,
         error: Error,

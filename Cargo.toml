@@ -1,9 +1,10 @@
 [workspace]
-members = ["crates/core"]
+members = ["crates/core", "crates/storage/in-memory", "examples/simple"]
 resolver = "2"
 
 [workspace.dependencies]
 jobfire-core = { path = "./crates/core/" }
+jobfire-storage-in-memory = { path = "./crates/storage/in-memory/" }
 log = { version = "0.4.26" }
 serde = { version = "1.0.219", features = ["derive"] }
 uuid = { version = "1.15.1", features = ["v7"] }
@@ -15,3 +16,4 @@ tokio = { version = "1.44.1", features = ["full"] }
 getset = { version = "0.1.5" }
 quick-macros = { version = "0.1.2" }
 thiserror = { version = "2.0.12" }
+simple_logger = { version = "5.0.0" }

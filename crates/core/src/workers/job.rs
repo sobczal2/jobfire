@@ -1,37 +1,45 @@
 use chrono::{Duration, Utc};
-use tokio::{sync::mpsc, time::timeout};
+use tokio::{
+    sync::{mpsc, oneshot},
+    time::{sleep, timeout},
+};
 
 use crate::{
-    domain::job::{Context, FailedJob, PendingJob, RunningJob, SuccessfulJob},
-    persistence::Persistence,
+    domain::{FailedJob, JobContext, PendingJob, RunningJob, SuccessfulJob},
+    storage::Storage,
 };
 
 use super::error::{Error, Result};
 
 pub(crate) enum JobWorkerCommand {
-    Stop,
+    Stop(oneshot::Sender<Result<()>>),
 }
 
+#[derive(Clone)]
 pub(crate) struct JobWorkerHandle {
     tx: mpsc::Sender<JobWorkerCommand>,
 }
 
 impl JobWorkerHandle {
     pub async fn stop(&self) -> Result<()> {
+        let (rx, tx) = oneshot::channel();
         self.tx
-            .send(JobWorkerCommand::Stop)
+            .send(JobWorkerCommand::Stop(rx))
             .await
-            .map_err(|_| Error::StopFailed)
+            .map_err(|_| Error::StopFailed)?;
+
+        tx.await.unwrap()
     }
 }
 
-pub(crate) struct JobWorkerSettings {
+#[derive(Clone, Copy, Debug)]
+pub struct JobWorkerSettings {
     poll_rate: Duration,
     command_channel_size: usize,
 }
 
 impl JobWorkerSettings {
-    pub(crate) fn new(poll_rate: Duration, command_channel_size: usize) -> Result<Self> {
+    pub fn new(poll_rate: Duration, command_channel_size: usize) -> Result<Self> {
         if poll_rate < Duration::zero() {
             return Err(Error::InvalidSettings(
                 "poll_rate can't be negative".to_owned(),
@@ -45,58 +53,63 @@ impl JobWorkerSettings {
     }
 }
 
-pub(crate) struct JobWorker<T: Context> {
-    settings: JobWorkerSettings,
-    rx: mpsc::Receiver<JobWorkerCommand>,
-    persistence: Persistence<T>,
-    context: T,
-    stop_requested: bool,
+impl Default for JobWorkerSettings {
+    fn default() -> Self {
+        Self::new(Duration::milliseconds(100), 32).unwrap()
+    }
 }
 
-impl<T: Context> JobWorker<T> {
+pub(crate) struct JobWorker<T: JobContext> {
+    settings: JobWorkerSettings,
+    rx: mpsc::Receiver<JobWorkerCommand>,
+    storage: Storage<T>,
+    context: T,
+    stop_requested: bool,
+    stopped: bool,
+}
+
+impl<T: JobContext> JobWorker<T> {
     pub(crate) fn start(
         settings: JobWorkerSettings,
-        persistence: Persistence<T>,
+        storage: Storage<T>,
         context: T,
     ) -> JobWorkerHandle {
         let (tx, rx) = mpsc::channel(settings.command_channel_size);
         let worker = Self {
             settings,
             rx,
-            persistence,
+            storage,
             context,
             stop_requested: false,
+            stopped: false,
         };
 
         tokio::spawn(async move { worker.run().await });
 
+        log::info!("JobWorker started");
         JobWorkerHandle { tx }
     }
 
     fn stop(&mut self) {
-        log::info!("stop requested");
+        log::info!("JobWorker stopping");
         self.stop_requested = true;
     }
 
     async fn run(mut self) {
         loop {
             if self.stop_requested {
-                log::info!("stopped");
+                log::info!("JobWorker stopped");
                 break;
             }
 
-            if let Ok(command) =
+            if let Ok(Some(command)) =
                 timeout(self.settings.poll_rate.to_std().unwrap(), self.rx.recv()).await
             {
-                if let Some(command) = command {
-                    self.handle_command(command);
-                    continue;
-                } else {
-                    self.stop();
-                }
+                self.handle_command(command).await;
+                continue;
             }
 
-            match self.persistence.pending_job_repo().find_scheduled().await {
+            match self.storage.pending_job_repo().find_scheduled().await {
                 Ok(mut pending_job) => {
                     while let Some(pending_job) = pending_job.take() {
                         self.handle_pending_job(pending_job).await
@@ -111,10 +124,21 @@ impl<T: Context> JobWorker<T> {
         }
     }
 
-    fn handle_command(&self, command: JobWorkerCommand) {}
+    async fn handle_command(&mut self, command: JobWorkerCommand) {
+        match command {
+            JobWorkerCommand::Stop(sender) => {
+                self.stop();
+                // todo replace
+                sleep(std::time::Duration::from_secs(3)).await;
+                if sender.send(Ok(())).is_err() {
+                    log::error!("failed to send back stop confirmation");
+                }
+            }
+        }
+    }
     async fn handle_pending_job(&self, pending_job: PendingJob<T>) {
         if self
-            .persistence
+            .storage
             .pending_job_repo()
             .delete(*pending_job.id())
             .await
@@ -124,11 +148,11 @@ impl<T: Context> JobWorker<T> {
             return;
         }
 
-        let persistence = self.persistence.clone();
+        let persistence = self.storage.clone();
         let context = self.context.clone();
 
         tokio::spawn(async move {
-            log::info!("running job: {}", pending_job.id());
+            log::info!("running job: {:?}", pending_job.id());
             if persistence
                 .running_job_repo()
                 .add(RunningJob::new(
@@ -147,7 +171,7 @@ impl<T: Context> JobWorker<T> {
                     .is_err()
                 {
                     log::error!(
-                        "failed to recover after issue, job: {} has been dropped",
+                        "failed to recover after issue, job: {:?} has been dropped",
                         pending_job.id()
                     )
                 }
