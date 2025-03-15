@@ -1,12 +1,12 @@
-use std::sync::Arc;
-
 use chrono::{Duration, Utc};
 use tokio::{sync::mpsc, time::timeout};
 
 use crate::{
-    domain::job::{PendingJob, RunningJob, SuccessfulJob},
-    persistence::job::{FailedJobRepo, PendingJobRepo, RunningJobRepo, SuccessfullJobRepo},
+    domain::job::{Context, FailedJob, PendingJob, RunningJob, SuccessfulJob},
+    persistence::Persistence,
 };
+
+use super::error::{Error, Result};
 
 pub(crate) enum JobWorkerCommand {
     Stop,
@@ -16,39 +16,55 @@ pub(crate) struct JobWorkerHandle {
     tx: mpsc::Sender<JobWorkerCommand>,
 }
 
+impl JobWorkerHandle {
+    pub async fn stop(&self) -> Result<()> {
+        self.tx
+            .send(JobWorkerCommand::Stop)
+            .await
+            .map_err(|_| Error::StopFailed)
+    }
+}
+
 pub(crate) struct JobWorkerSettings {
     poll_rate: Duration,
     command_channel_size: usize,
 }
 
-pub(crate) struct JobWorker {
+impl JobWorkerSettings {
+    pub(crate) fn new(poll_rate: Duration, command_channel_size: usize) -> Result<Self> {
+        if poll_rate < Duration::zero() {
+            return Err(Error::InvalidSettings(
+                "poll_rate can't be negative".to_owned(),
+            ));
+        }
+
+        Ok(Self {
+            poll_rate,
+            command_channel_size,
+        })
+    }
+}
+
+pub(crate) struct JobWorker<T: Context> {
     settings: JobWorkerSettings,
     rx: mpsc::Receiver<JobWorkerCommand>,
-    pending_job_repo: Arc<dyn PendingJobRepo>,
-    running_job_repo: Arc<dyn RunningJobRepo>,
-    failed_job_repo: Arc<dyn FailedJobRepo>,
-    successful_job_repo: Arc<dyn SuccessfullJobRepo>,
+    persistence: Persistence<T>,
+    context: T,
     stop_requested: bool,
 }
 
-impl JobWorker {
+impl<T: Context> JobWorker<T> {
     pub(crate) fn start(
         settings: JobWorkerSettings,
-        pending_job_repo: Arc<dyn PendingJobRepo>,
-        running_job_repo: Arc<dyn RunningJobRepo>,
-        failed_job_repo: Arc<dyn FailedJobRepo>,
-        successful_job_repo: Arc<dyn SuccessfullJobRepo>,
+        persistence: Persistence<T>,
+        context: T,
     ) -> JobWorkerHandle {
-        assert!(settings.poll_rate > Duration::zero());
-
         let (tx, rx) = mpsc::channel(settings.command_channel_size);
         let worker = Self {
             settings,
             rx,
-            pending_job_repo,
-            running_job_repo,
-            failed_job_repo,
-            successful_job_repo,
+            persistence,
+            context,
             stop_requested: false,
         };
 
@@ -58,12 +74,14 @@ impl JobWorker {
     }
 
     fn stop(&mut self) {
+        log::info!("stop requested");
         self.stop_requested = true;
     }
 
     async fn run(mut self) {
         loop {
             if self.stop_requested {
+                log::info!("stopped");
                 break;
             }
 
@@ -78,7 +96,7 @@ impl JobWorker {
                 }
             }
 
-            match self.pending_job_repo.first_scheduled().await {
+            match self.persistence.pending_job_repo().find_scheduled().await {
                 Ok(mut pending_job) => {
                     while let Some(pending_job) = pending_job.take() {
                         self.handle_pending_job(pending_job).await
@@ -94,9 +112,10 @@ impl JobWorker {
     }
 
     fn handle_command(&self, command: JobWorkerCommand) {}
-    async fn handle_pending_job(&self, pending_job: PendingJob) {
+    async fn handle_pending_job(&self, pending_job: PendingJob<T>) {
         if self
-            .pending_job_repo
+            .persistence
+            .pending_job_repo()
             .delete(*pending_job.id())
             .await
             .is_err()
@@ -105,14 +124,13 @@ impl JobWorker {
             return;
         }
 
-        let pending_job_repo = self.pending_job_repo.clone();
-        let running_job_repo = self.running_job_repo.clone();
-        let successful_job_repo = self.successful_job_repo.clone();
-        let failed_job_repo = self.failed_job_repo.clone();
+        let persistence = self.persistence.clone();
+        let context = self.context.clone();
 
         tokio::spawn(async move {
             log::info!("running job: {}", pending_job.id());
-            if running_job_repo
+            if persistence
+                .running_job_repo()
                 .add(RunningJob::new(
                     *pending_job.id(),
                     *pending_job.created_at(),
@@ -122,7 +140,12 @@ impl JobWorker {
                 .is_err()
             {
                 log::error!("failed to add running job");
-                if pending_job_repo.add(pending_job.clone()).await.is_err() {
+                if persistence
+                    .pending_job_repo()
+                    .add(pending_job.clone())
+                    .await
+                    .is_err()
+                {
                     log::error!(
                         "failed to recover after issue, job: {} has been dropped",
                         pending_job.id()
@@ -130,9 +153,11 @@ impl JobWorker {
                 }
                 return;
             }
-            match pending_job.r#impl().run().await {
+            match pending_job.r#impl().run(context.clone()).await {
                 Ok(report) => {
-                    if successful_job_repo
+                    pending_job.r#impl().on_success(context).await;
+                    if persistence
+                        .successful_job_repo()
                         .add(SuccessfulJob::new(
                             *pending_job.id(),
                             *pending_job.created_at(),
@@ -145,7 +170,22 @@ impl JobWorker {
                         log::error!("failed to save successful job report");
                     }
                 }
-                Err(_) => todo!(),
+                Err(error) => {
+                    pending_job.r#impl().on_fail(context).await;
+                    if persistence
+                        .failed_job_repo()
+                        .add(FailedJob::new(
+                            *pending_job.id(),
+                            *pending_job.created_at(),
+                            Utc::now(),
+                            error,
+                        ))
+                        .await
+                        .is_err()
+                    {
+                        log::error!("failed to save failed job report");
+                    }
+                }
             }
         });
     }

@@ -12,4 +12,6 @@ chrono.workspace = true
 typetag.workspace = true
 async-trait.workspace = true
 tokio.workspace = true
-derive-getters.workspace = true
+getset.workspace = true
+quick-macros.workspace = true
+thiserror.workspace = true
