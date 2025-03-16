@@ -1,25 +1,33 @@
 mod error;
+pub mod job_impl_manager;
+
+use job_impl_manager::JobImplManager;
 
 use crate::{
-    domain::{JobContext, PendingJob},
+    domain::job::{JobContext, PendingJob},
     storage::Storage,
     workers::job::{JobWorker, JobWorkerHandle, JobWorkerSettings},
 };
 
 pub struct JobfireManager<T: JobContext> {
     context: T,
-    storage: Storage<T>,
+    storage: Storage,
     job_worker_handle: JobWorkerHandle,
 }
 
-impl<T: JobContext> JobfireManager<T> {
+impl<TJobContext: JobContext> JobfireManager<TJobContext> {
     pub fn start(
-        context: T,
-        storage: Storage<T>,
+        context: TJobContext,
+        storage: Storage,
+        job_impl_manager: JobImplManager<TJobContext>,
         job_worker_settings: JobWorkerSettings,
     ) -> error::Result<Self> {
-        let job_worker_handle =
-            JobWorker::start(job_worker_settings, storage.clone(), context.clone());
+        let job_worker_handle = JobWorker::start(
+            job_worker_settings,
+            storage.clone(),
+            context.clone(),
+            job_impl_manager,
+        );
 
         log::info!("JobfireManager started");
         Ok(Self {
@@ -40,7 +48,7 @@ impl<T: JobContext> JobfireManager<T> {
         Ok(())
     }
 
-    pub async fn schedule(&self, pending_job: PendingJob<T>) -> error::Result<()> {
+    pub async fn schedule(&self, pending_job: PendingJob) -> error::Result<()> {
         self.storage.pending_job_repo().add(pending_job).await?;
         Ok(())
     }

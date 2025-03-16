@@ -7,10 +7,10 @@ jobfire-core = { path = "./crates/core/" }
 jobfire-storage-in-memory = { path = "./crates/storage/in-memory/" }
 log = { version = "0.4.26" }
 serde = { version = "1.0.219", features = ["derive"] }
-uuid = { version = "1.15.1", features = ["v7"] }
+serde_json = { version = "1.0.140" }
+uuid = { version = "1.15.1", features = ["v7", "serde"] }
 cron = { version = "0.15.0", features = ["serde"] }
-chrono = { version = "0.4.40", features = [] }
-typetag = { version = "0.2.20" }
+chrono = { version = "0.4.40", features = ["serde"] }
 async-trait = { version = "0.1.87" }
 tokio = { version = "1.44.1", features = ["full"] }
 getset = { version = "0.1.5" }

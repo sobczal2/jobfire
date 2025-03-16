@@ -10,3 +10,4 @@ log.workspace = true
 simple_logger.workspace = true
 chrono.workspace = true
 tokio.workspace = true
+serde.workspace = true

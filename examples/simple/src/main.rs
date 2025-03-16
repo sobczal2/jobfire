@@ -1,8 +1,14 @@
 use std::sync::{Arc, Mutex};
 
 use chrono::{Duration, Utc};
-use jobfire_core::{prelude::*, workers::job::JobWorkerSettings};
+use jobfire_core::{
+    async_trait,
+    domain::job::{JobContext, JobError, JobImpl, JobImplName, PendingJob, Report},
+    managers::{JobfireManager, job_impl_manager::JobImplManager},
+    workers::job::JobWorkerSettings,
+};
 use jobfire_storage_in_memory::InMemoryStorage;
+use serde::{Deserialize, Serialize};
 use simple_logger::SimpleLogger;
 use tokio::signal::ctrl_c;
 
@@ -13,11 +19,12 @@ struct SimpleContext {
 
 impl JobContext for SimpleContext {}
 
+#[derive(Serialize, Deserialize)]
 struct SimpleJob;
 
 #[async_trait]
 impl JobImpl<SimpleContext> for SimpleJob {
-    async fn run(&self, context: SimpleContext) -> Result<Report, Error> {
+    async fn run(&self, context: SimpleContext) -> Result<Report, JobError> {
         let mut counter_lock = context.counter.lock().unwrap();
         log::info!("simple job ran with counter = {}", counter_lock);
         *counter_lock += 1;
@@ -31,6 +38,10 @@ impl JobImpl<SimpleContext> for SimpleJob {
     async fn on_success(&self, context: SimpleContext) {
         log::info!("on success ran")
     }
+
+    fn name() -> jobfire_core::domain::job::JobImplName {
+        JobImplName::new("simple_job".to_owned())
+    }
 }
 #[tokio::main]
 async fn main() {
@@ -40,15 +51,22 @@ async fn main() {
         counter: Arc::new(Mutex::new(0)),
     };
     let storage = InMemoryStorage::default();
-    let manager =
-        JobfireManager::start(context, storage.into(), JobWorkerSettings::default()).unwrap();
+    let mut job_impl_manager = JobImplManager::default();
+    job_impl_manager.register::<SimpleJob>();
+    let manager = JobfireManager::start(
+        context,
+        storage.into(),
+        job_impl_manager,
+        JobWorkerSettings::default(),
+    )
+    .unwrap();
 
     let jobs = vec![
-        PendingJob::new_at(Utc::now(), Arc::new(SimpleJob)),
-        PendingJob::new_at(Utc::now() - Duration::seconds(10), Arc::new(SimpleJob)),
-        PendingJob::new_at(Utc::now() + Duration::seconds(5), Arc::new(SimpleJob)),
-        PendingJob::new_at(Utc::now() + Duration::seconds(10), Arc::new(SimpleJob)),
-        PendingJob::new_at(Utc::now() + Duration::seconds(15), Arc::new(SimpleJob)),
+        PendingJob::new_at(Utc::now(), SimpleJob).unwrap(),
+        PendingJob::new_at(Utc::now() - Duration::seconds(10), SimpleJob).unwrap(),
+        PendingJob::new_at(Utc::now() + Duration::seconds(5), SimpleJob).unwrap(),
+        PendingJob::new_at(Utc::now() + Duration::seconds(10), SimpleJob).unwrap(),
+        PendingJob::new_at(Utc::now() + Duration::seconds(15), SimpleJob).unwrap(),
     ];
 
     for job in jobs.iter() {

@@ -6,16 +6,16 @@ use job::{
     failed::FailedJobRepoImpl, pending::PendingJobRepoImpl, running::RunningJobRepoImpl,
     successful::SuccessfulJobRepoImpl,
 };
-use jobfire_core::prelude::*;
+use jobfire_core::storage::Storage;
 
-pub struct InMemoryStorage<T: JobContext> {
-    pending_job_repo: PendingJobRepoImpl<T>,
-    running_job_repo: RunningJobRepoImpl<T>,
-    successful_job_repo: SuccessfulJobRepoImpl<T>,
-    failed_job_repo: FailedJobRepoImpl<T>,
+pub struct InMemoryStorage {
+    pending_job_repo: PendingJobRepoImpl,
+    running_job_repo: RunningJobRepoImpl,
+    successful_job_repo: SuccessfulJobRepoImpl,
+    failed_job_repo: FailedJobRepoImpl,
 }
 
-impl<T: JobContext> Default for InMemoryStorage<T> {
+impl Default for InMemoryStorage {
     fn default() -> Self {
         Self {
             pending_job_repo: Default::default(),
@@ -26,8 +26,8 @@ impl<T: JobContext> Default for InMemoryStorage<T> {
     }
 }
 
-impl<T: JobContext> From<InMemoryStorage<T>> for Storage<T> {
-    fn from(value: InMemoryStorage<T>) -> Self {
+impl From<InMemoryStorage> for Storage {
+    fn from(value: InMemoryStorage) -> Self {
         let pending_job_repo = Arc::new(value.pending_job_repo);
         let running_job_repo = Arc::new(value.running_job_repo);
         let successful_job_repo = Arc::new(value.successful_job_repo);

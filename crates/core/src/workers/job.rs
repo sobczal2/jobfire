@@ -5,7 +5,8 @@ use tokio::{
 };
 
 use crate::{
-    domain::{FailedJob, JobContext, PendingJob, RunningJob, SuccessfulJob},
+    domain::job::{FailedJob, JobContext, PendingJob, RunningJob, SuccessfulJob},
+    managers::job_impl_manager::JobImplManager,
     storage::Storage,
 };
 
@@ -59,20 +60,22 @@ impl Default for JobWorkerSettings {
     }
 }
 
-pub(crate) struct JobWorker<T: JobContext> {
+pub(crate) struct JobWorker<TJobContext: JobContext> {
     settings: JobWorkerSettings,
     rx: mpsc::Receiver<JobWorkerCommand>,
-    storage: Storage<T>,
-    context: T,
+    storage: Storage,
+    context: TJobContext,
+    job_impl_manager: JobImplManager<TJobContext>,
     stop_requested: bool,
     stopped: bool,
 }
 
-impl<T: JobContext> JobWorker<T> {
+impl<TJobContext: JobContext> JobWorker<TJobContext> {
     pub(crate) fn start(
         settings: JobWorkerSettings,
-        storage: Storage<T>,
-        context: T,
+        storage: Storage,
+        context: TJobContext,
+        job_impl_manager: JobImplManager<TJobContext>,
     ) -> JobWorkerHandle {
         let (tx, rx) = mpsc::channel(settings.command_channel_size);
         let worker = Self {
@@ -80,6 +83,7 @@ impl<T: JobContext> JobWorker<T> {
             rx,
             storage,
             context,
+            job_impl_manager,
             stop_requested: false,
             stopped: false,
         };
@@ -136,7 +140,7 @@ impl<T: JobContext> JobWorker<T> {
             }
         }
     }
-    async fn handle_pending_job(&self, pending_job: PendingJob<T>) {
+    async fn handle_pending_job(&self, pending_job: PendingJob) {
         if self
             .storage
             .pending_job_repo()
@@ -150,6 +154,7 @@ impl<T: JobContext> JobWorker<T> {
 
         let persistence = self.storage.clone();
         let context = self.context.clone();
+        let job_impl_manager = self.job_impl_manager.clone();
 
         tokio::spawn(async move {
             log::info!("running job: {:?}", pending_job.id());
@@ -177,9 +182,14 @@ impl<T: JobContext> JobWorker<T> {
                 }
                 return;
             }
-            match pending_job.r#impl().run(context.clone()).await {
+            match job_impl_manager
+                .run(pending_job.clone(), context.clone())
+                .await
+            {
                 Ok(report) => {
-                    pending_job.r#impl().on_success(context).await;
+                    job_impl_manager
+                        .on_success(pending_job.clone(), context)
+                        .await;
                     if persistence
                         .successful_job_repo()
                         .add(SuccessfulJob::new(
@@ -195,7 +205,7 @@ impl<T: JobContext> JobWorker<T> {
                     }
                 }
                 Err(error) => {
-                    pending_job.r#impl().on_fail(context).await;
+                    job_impl_manager.on_fail(pending_job.clone(), context).await;
                     if persistence
                         .failed_job_repo()
                         .add(FailedJob::new(

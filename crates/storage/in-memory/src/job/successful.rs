@@ -2,15 +2,15 @@ use std::sync::{Arc, RwLock};
 
 use jobfire_core::{
     async_trait,
-    prelude::{JobContext, SuccessfulJob},
-    storage::{Error, SuccessfulJobRepo},
+    domain::{error::Error, job::SuccessfulJob},
+    storage::job::SuccessfulJobRepo,
 };
 
-pub(crate) struct SuccessfulJobRepoImpl<T: JobContext> {
-    elements: Arc<RwLock<Vec<SuccessfulJob<T>>>>,
+pub(crate) struct SuccessfulJobRepoImpl {
+    elements: Arc<RwLock<Vec<SuccessfulJob>>>,
 }
 
-impl<T: JobContext> Default for SuccessfulJobRepoImpl<T> {
+impl Default for SuccessfulJobRepoImpl {
     fn default() -> Self {
         Self {
             elements: Default::default(),
@@ -19,11 +19,11 @@ impl<T: JobContext> Default for SuccessfulJobRepoImpl<T> {
 }
 
 #[async_trait]
-impl<T: JobContext> SuccessfulJobRepo<T> for SuccessfulJobRepoImpl<T> {
-    async fn add(&self, successful_job: SuccessfulJob<T>) -> jobfire_core::storage::Result<()> {
+impl SuccessfulJobRepo for SuccessfulJobRepoImpl {
+    async fn add(&self, successful_job: SuccessfulJob) -> jobfire_core::storage::error::Result<()> {
         self.elements
             .write()
-            .map_err(|e| Error::new(e.to_string()))?
+            .map_err(|e| jobfire_core::storage::error::Error::new(e.to_string()))?
             .push(successful_job);
         Ok(())
     }

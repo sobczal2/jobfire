@@ -1,30 +1,25 @@
-use std::sync::Arc;
+pub mod error;
+pub mod job;
 
 use getset::Getters;
-
-use crate::domain::JobContext;
-
-mod error;
-mod job;
-
-pub use error::{Error, Result};
-pub use job::{FailedJobRepo, PendingJobRepo, RunningJobRepo, SuccessfulJobRepo};
+use job::{FailedJobRepo, PendingJobRepo, RunningJobRepo, SuccessfulJobRepo};
+use std::sync::Arc;
 
 #[derive(Clone, Getters)]
 #[getset(get = "pub")]
-pub struct Storage<T: JobContext> {
-    pending_job_repo: Arc<dyn PendingJobRepo<T>>,
-    running_job_repo: Arc<dyn RunningJobRepo<T>>,
-    successful_job_repo: Arc<dyn SuccessfulJobRepo<T>>,
-    failed_job_repo: Arc<dyn FailedJobRepo<T>>,
+pub struct Storage {
+    pending_job_repo: Arc<dyn PendingJobRepo>,
+    running_job_repo: Arc<dyn RunningJobRepo>,
+    successful_job_repo: Arc<dyn SuccessfulJobRepo>,
+    failed_job_repo: Arc<dyn FailedJobRepo>,
 }
 
-impl<T: JobContext> Storage<T> {
+impl Storage {
     pub fn new(
-        pending_job_repo: Arc<dyn PendingJobRepo<T>>,
-        running_job_repo: Arc<dyn RunningJobRepo<T>>,
-        successful_job_repo: Arc<dyn SuccessfulJobRepo<T>>,
-        failed_job_repo: Arc<dyn FailedJobRepo<T>>,
+        pending_job_repo: Arc<dyn PendingJobRepo>,
+        running_job_repo: Arc<dyn RunningJobRepo>,
+        successful_job_repo: Arc<dyn SuccessfulJobRepo>,
+        failed_job_repo: Arc<dyn FailedJobRepo>,
     ) -> Self {
         Self {
             pending_job_repo,
