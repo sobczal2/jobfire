@@ -29,10 +29,36 @@ pub enum Error {
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Clone)]
-struct JobActions<TJobContext: JobContext> {
+pub struct JobActions<TJobContext: JobContext> {
     run: RunFn<TJobContext>,
     on_success: OnSuccessFn<TJobContext>,
     on_fail: OnFailFn<TJobContext>,
+}
+
+impl<TJobContext: JobContext> JobActions<TJobContext> {
+    pub async fn run(
+        &self,
+        pending_job: &PendingJob,
+        job_context: TJobContext,
+    ) -> job::Result<Report> {
+        (self.run.clone())(pending_job.clone(), job_context).await
+    }
+
+    pub async fn on_success(
+        &self,
+        pending_job: &PendingJob,
+        job_context: TJobContext,
+    ) -> job::Result<()> {
+        (self.on_success.clone())(pending_job.clone(), job_context).await
+    }
+
+    pub async fn on_fail(
+        &self,
+        pending_job: &PendingJob,
+        job_context: TJobContext,
+    ) -> job::Result<()> {
+        (self.on_fail.clone())(pending_job.clone(), job_context).await
+    }
 }
 
 #[derive(Clone)]
@@ -48,8 +74,7 @@ impl<TJobContext: JobContext> JobActionsRegistry<TJobContext> {
     pub fn register<TJobImpl: JobImpl<TJobContext>>(&mut self) {
         let run: RunFn<TJobContext> = Arc::new(|pending_job: PendingJob, job_context| {
             Box::pin(async move {
-                let job_impl = pending_job
-                    .build_impl::<TJobContext, TJobImpl>()
+                let job_impl = serde_json::from_value::<TJobImpl>(pending_job.r#impl().clone())
                     .map_err(|_| job::Error::JobImplBuildFailed);
                 match job_impl {
                     Ok(job_impl) => job_impl.run(job_context).await,
@@ -64,8 +89,7 @@ impl<TJobContext: JobContext> JobActionsRegistry<TJobContext> {
         let on_success: OnSuccessFn<TJobContext> =
             Arc::new(|pending_job: PendingJob, job_context| {
                 Box::pin(async move {
-                    let job_impl = pending_job
-                        .build_impl::<TJobContext, TJobImpl>()
+                    let job_impl = serde_json::from_value::<TJobImpl>(pending_job.r#impl().clone())
                         .map_err(|_| job::Error::JobImplBuildFailed);
                     match job_impl {
                         Ok(job_impl) => job_impl.on_success(job_context).await,
@@ -79,8 +103,7 @@ impl<TJobContext: JobContext> JobActionsRegistry<TJobContext> {
 
         let on_fail: OnFailFn<TJobContext> = Arc::new(|pending_job: PendingJob, job_context| {
             Box::pin(async move {
-                let job_impl = pending_job
-                    .build_impl::<TJobContext, TJobImpl>()
+                let job_impl = serde_json::from_value::<TJobImpl>(pending_job.r#impl().clone())
                     .map_err(|_| job::Error::JobImplBuildFailed);
                 match job_impl {
                     Ok(job_impl) => job_impl.on_fail(job_context).await,
@@ -102,28 +125,23 @@ impl<TJobContext: JobContext> JobActionsRegistry<TJobContext> {
         );
     }
 
-    pub fn get_run_fn(&self, job_impl_name: JobImplName) -> Result<RunFn<TJobContext>> {
-        match self.job_actions_map.get(&job_impl_name) {
-            Some(job_actions) => Ok(job_actions.run.clone()),
-            None => Err(Error::FnNotFound),
-        }
+    pub fn get(&self, job_impl_name: &JobImplName) -> Option<JobActions<TJobContext>> {
+        self.job_actions_map.get(&job_impl_name).cloned()
+    }
+
+    pub fn get_run_fn(&self, job_impl_name: &JobImplName) -> Option<RunFn<TJobContext>> {
+        self.get(job_impl_name).map(|ja| ja.run.clone())
     }
 
     pub fn get_on_success_fn(
         &self,
-        job_impl_name: JobImplName,
-    ) -> Result<OnSuccessFn<TJobContext>> {
-        match self.job_actions_map.get(&job_impl_name) {
-            Some(job_actions) => Ok(job_actions.on_success.clone()),
-            None => Err(Error::FnNotFound),
-        }
+        job_impl_name: &JobImplName,
+    ) -> Option<OnSuccessFn<TJobContext>> {
+        self.get(job_impl_name).map(|ja| ja.on_success.clone())
     }
 
-    pub fn get_on_fail_fn(&self, job_impl_name: JobImplName) -> Result<OnFailFn<TJobContext>> {
-        match self.job_actions_map.get(&job_impl_name) {
-            Some(job_actions) => Ok(job_actions.on_fail.clone()),
-            None => Err(Error::FnNotFound),
-        }
+    pub fn get_on_fail_fn(&self, job_impl_name: &JobImplName) -> Option<OnFailFn<TJobContext>> {
+        self.get(job_impl_name).map(|ja| ja.on_fail.clone())
     }
 }
 

@@ -95,14 +95,6 @@ impl PendingJob {
     ) -> super::error::Result<Self> {
         Self::new(JobId::new(), Utc::now(), scheduled_at, r#impl)
     }
-
-    pub fn build_impl<TJobContext: JobContext, TJobImpl: JobImpl<TJobContext>>(
-        &self,
-    ) -> super::error::Result<TJobImpl> {
-        let job_impl = serde_json::from_value::<TJobImpl>(self.r#impl.clone())
-            .map_err(|_| super::error::Error::BuildJobImplFailed)?;
-        Ok(job_impl)
-    }
 }
 
 #[derive(Clone, Getters, Serialize, Deserialize)]
