@@ -1,7 +1,4 @@
 mod error;
-pub mod job_impl_manager;
-
-use job_impl_manager::JobImplManager;
 
 use crate::{
     domain::job::{JobContext, PendingJob},

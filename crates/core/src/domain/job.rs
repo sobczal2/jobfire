@@ -5,6 +5,7 @@ use chrono::{DateTime, Utc};
 use getset::Getters;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::{Value, to_value};
+use thiserror::Error;
 use uuid::Uuid;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -35,21 +36,20 @@ pub trait JobImpl<T: JobContext>:
     fn name_dyn(&self) -> JobImplName {
         Self::name()
     }
-    async fn run(&self, context: T) -> Result<Report, JobError>;
-    async fn on_fail(&self, context: T);
-    async fn on_success(&self, context: T);
+    async fn run(&self, context: T) -> Result<Report>;
+    async fn on_fail(&self, context: T) -> Result<()>;
+    async fn on_success(&self, context: T) -> Result<()>;
 }
 
-#[derive(Clone, Serialize, Deserialize)]
-pub struct JobError {
-    message: String,
+#[derive(Error, Clone, Serialize, Deserialize, Debug)]
+pub enum Error {
+    #[error("building job impl failed")]
+    JobImplBuildFailed,
+    #[error("job failed: {message}")]
+    Custom { message: String },
 }
 
-impl JobError {
-    pub fn new(message: String) -> Self {
-        Self { message }
-    }
-}
+pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Report {}
@@ -154,7 +154,7 @@ pub struct FailedJob {
     id: JobId,
     created_at: DateTime<Utc>,
     finished_at: DateTime<Utc>,
-    error: JobError,
+    error: Error,
 }
 
 impl FailedJob {
@@ -162,7 +162,7 @@ impl FailedJob {
         id: JobId,
         created_at: DateTime<Utc>,
         finished_at: DateTime<Utc>,
-        error: JobError,
+        error: Error,
     ) -> Self {
         Self {
             id,
