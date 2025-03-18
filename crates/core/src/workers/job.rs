@@ -1,4 +1,5 @@
-use chrono::{Duration, Utc};
+use chrono::Duration;
+use thiserror::Error;
 use tokio::{
     sync::{mpsc, oneshot},
     time::{sleep, timeout},
@@ -10,7 +11,15 @@ use crate::{
     storage::Storage,
 };
 
-use super::error::{Error, Result};
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error("failed to stop")]
+    StopFailed,
+    #[error("invalid settings: {0}")]
+    InvalidSettings(String),
+}
+
+pub type Result<T> = std::result::Result<T, Error>;
 
 pub(crate) enum JobWorkerCommand {
     Stop(oneshot::Sender<Result<()>>),

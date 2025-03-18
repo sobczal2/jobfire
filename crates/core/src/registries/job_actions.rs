@@ -2,20 +2,35 @@ use std::{collections::HashMap, pin::Pin, sync::Arc};
 
 use thiserror::Error;
 
-use crate::domain::job::{self, JobContext, JobImpl, JobImplName, PendingJob, Report};
+use crate::{
+    domain::job::{self, JobContext, JobImpl, JobImplName, PendingJob, Report},
+    managers::job_scheduler::{self, JobScheduler},
+};
 
 pub type RunFn<TJobContext: JobContext> = Arc<
-    dyn Fn(PendingJob, TJobContext) -> Pin<Box<dyn Future<Output = job::Result<Report>> + Send>>
+    dyn Fn(
+            PendingJob,
+            TJobContext,
+            JobScheduler,
+        ) -> Pin<Box<dyn Future<Output = job::Result<Report>> + Send>>
         + Send
         + Sync,
 >;
 pub type OnSuccessFn<TJobContext: JobContext> = Arc<
-    dyn Fn(PendingJob, TJobContext) -> Pin<Box<dyn Future<Output = job::Result<()>> + Send>>
+    dyn Fn(
+            PendingJob,
+            TJobContext,
+            JobScheduler,
+        ) -> Pin<Box<dyn Future<Output = job::Result<()>> + Send>>
         + Send
         + Sync,
 >;
 pub type OnFailFn<TJobContext: JobContext> = Arc<
-    dyn Fn(PendingJob, TJobContext) -> Pin<Box<dyn Future<Output = job::Result<()>> + Send>>
+    dyn Fn(
+            PendingJob,
+            TJobContext,
+            JobScheduler,
+        ) -> Pin<Box<dyn Future<Output = job::Result<()>> + Send>>
         + Send
         + Sync,
 >;
@@ -40,24 +55,27 @@ impl<TJobContext: JobContext> JobActions<TJobContext> {
         &self,
         pending_job: &PendingJob,
         job_context: TJobContext,
+        job_scheduler: JobScheduler,
     ) -> job::Result<Report> {
-        (self.run.clone())(pending_job.clone(), job_context).await
+        (self.run.clone())(pending_job.clone(), job_context, job_scheduler).await
     }
 
     pub async fn on_success(
         &self,
         pending_job: &PendingJob,
         job_context: TJobContext,
+        job_scheduler: JobScheduler,
     ) -> job::Result<()> {
-        (self.on_success.clone())(pending_job.clone(), job_context).await
+        (self.on_success.clone())(pending_job.clone(), job_context, job_scheduler).await
     }
 
     pub async fn on_fail(
         &self,
         pending_job: &PendingJob,
         job_context: TJobContext,
+        job_scheduler: JobScheduler,
     ) -> job::Result<()> {
-        (self.on_fail.clone())(pending_job.clone(), job_context).await
+        (self.on_fail.clone())(pending_job.clone(), job_context, job_scheduler).await
     }
 }
 
@@ -72,22 +90,23 @@ impl<TJobContext: JobContext> JobActionsRegistry<TJobContext> {
     }
 
     pub fn register<TJobImpl: JobImpl<TJobContext>>(&mut self) {
-        let run: RunFn<TJobContext> = Arc::new(|pending_job: PendingJob, job_context| {
-            Box::pin(async move {
-                let job_impl = serde_json::from_value::<TJobImpl>(pending_job.r#impl().clone())
-                    .map_err(|_| job::Error::JobImplBuildFailed);
-                match job_impl {
-                    Ok(job_impl) => job_impl.run(job_context).await,
-                    Err(e) => {
-                        log::error!("failed to run job action");
-                        Err(e)
+        let run: RunFn<TJobContext> =
+            Arc::new(|pending_job: PendingJob, job_context, job_scheduler| {
+                Box::pin(async move {
+                    let job_impl = serde_json::from_value::<TJobImpl>(pending_job.r#impl().clone())
+                        .map_err(|_| job::Error::JobImplBuildFailed);
+                    match job_impl {
+                        Ok(job_impl) => job_impl.run(job_context).await,
+                        Err(e) => {
+                            log::error!("failed to run job action");
+                            Err(e)
+                        }
                     }
-                }
-            })
-        });
+                })
+            });
 
         let on_success: OnSuccessFn<TJobContext> =
-            Arc::new(|pending_job: PendingJob, job_context| {
+            Arc::new(|pending_job: PendingJob, job_context, job_scheduler| {
                 Box::pin(async move {
                     let job_impl = serde_json::from_value::<TJobImpl>(pending_job.r#impl().clone())
                         .map_err(|_| job::Error::JobImplBuildFailed);
@@ -101,19 +120,20 @@ impl<TJobContext: JobContext> JobActionsRegistry<TJobContext> {
                 })
             });
 
-        let on_fail: OnFailFn<TJobContext> = Arc::new(|pending_job: PendingJob, job_context| {
-            Box::pin(async move {
-                let job_impl = serde_json::from_value::<TJobImpl>(pending_job.r#impl().clone())
-                    .map_err(|_| job::Error::JobImplBuildFailed);
-                match job_impl {
-                    Ok(job_impl) => job_impl.on_fail(job_context).await,
-                    Err(e) => {
-                        log::error!("failed to run on_fail job action");
-                        Err(e)
+        let on_fail: OnFailFn<TJobContext> =
+            Arc::new(|pending_job: PendingJob, job_context, job_scheduler| {
+                Box::pin(async move {
+                    let job_impl = serde_json::from_value::<TJobImpl>(pending_job.r#impl().clone())
+                        .map_err(|_| job::Error::JobImplBuildFailed);
+                    match job_impl {
+                        Ok(job_impl) => job_impl.on_fail(job_context).await,
+                        Err(e) => {
+                            log::error!("failed to run on_fail job action");
+                            Err(e)
+                        }
                     }
-                }
-            })
-        });
+                })
+            });
 
         self.job_actions_map.insert(
             TJobImpl::name(),

@@ -6,8 +6,10 @@ use super::error::Result;
 
 #[async_trait]
 pub trait PendingJobRepo: Send + Sync {
+    async fn get(&self, job_id: &JobId) -> Result<Option<PendingJob>>;
     async fn add(&self, pending_job: &PendingJob) -> Result<()>;
     async fn pop_scheduled(&self) -> Result<Option<PendingJob>>;
+    async fn delete(&self, job_id: &JobId) -> Result<()>;
 }
 
 #[async_trait]
