@@ -22,29 +22,23 @@ pub enum Error {
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-pub struct JobfireManager<TData: JobContextData> {
-    context: JobContext<TData>,
+pub struct JobfireManager {
     storage: Storage,
     job_worker_handle: JobWorkerHandle,
 }
 
-impl<TData: JobContextData> JobfireManager<TData> {
-    pub fn start(
+impl JobfireManager {
+    pub fn start<TData: JobContextData>(
         context: JobContext<TData>,
         storage: Storage,
         job_runner: Box<dyn JobRunner<TData>>,
         job_worker_settings: JobWorkerSettings,
     ) -> Result<Self> {
-        let job_worker_handle = JobWorker::start(
-            job_worker_settings,
-            storage.clone(),
-            context.clone(),
-            job_runner,
-        );
+        let job_worker_handle =
+            JobWorker::start(job_worker_settings, storage.clone(), context, job_runner);
 
         log::info!("JobfireManager started");
         Ok(Self {
-            context,
             storage,
             job_worker_handle,
         })

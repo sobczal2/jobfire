@@ -3,9 +3,15 @@ use std::sync::{Arc, Mutex};
 use chrono::{Duration, Utc};
 use jobfire_core::{
     async_trait,
-    domain::job::{JobContext, JobError, JobImpl, JobImplName, PendingJob, Report},
-    managers::{JobfireManager, job_impl_manager::JobImplManager},
-    workers::job::JobWorkerSettings,
+    domain::job::{
+        context::{JobContext, JobContextData},
+        error::{Error, Result},
+        r#impl::{JobImpl, JobImplName},
+        report::Report,
+    },
+    managers::JobfireManager,
+    registries::job_actions::JobActionsRegistry,
+    runners::simple::job::SimpleJobRunner,
 };
 use jobfire_storage_in_memory::InMemoryStorage;
 use serde::{Deserialize, Serialize};
@@ -13,53 +19,53 @@ use simple_logger::SimpleLogger;
 use tokio::signal::ctrl_c;
 
 #[derive(Clone)]
-struct SimpleContext {
+struct SimpleContextData {
     counter: Arc<Mutex<usize>>,
 }
 
-impl JobContext for SimpleContext {}
+impl JobContextData for SimpleContextData {}
 
 #[derive(Serialize, Deserialize)]
 struct SimpleJob;
 
 #[async_trait]
-impl JobImpl<SimpleContext> for SimpleJob {
-    async fn run(&self, context: SimpleContext) -> Result<Report, JobError> {
-        let mut counter_lock = context.counter.lock().unwrap();
-        log::info!("simple job ran with counter = {}", counter_lock);
-        *counter_lock += 1;
-        Ok(Report::new())
+impl JobImpl<SimpleContextData> for SimpleJob {
+    fn name() -> JobImplName {
+        JobImplName::new("simple".to_owned())
     }
 
-    async fn on_fail(&self, context: SimpleContext) {
-        log::info!("on fail ran")
+    async fn run(&self, context: JobContext<SimpleContextData>) -> Result<Report> {
+        todo!()
     }
 
-    async fn on_success(&self, context: SimpleContext) {
-        log::info!("on success ran")
+    async fn on_fail(&self, context: JobContext<SimpleContextData>) -> Result<()> {
+        todo!()
     }
 
-    fn name() -> jobfire_core::domain::job::JobImplName {
-        JobImplName::new("simple_job".to_owned())
+    async fn on_success(&self, context: JobContext<SimpleContextData>) -> Result<()> {
+        todo!()
     }
 }
+
 #[tokio::main]
 async fn main() {
     SimpleLogger::new().init().unwrap();
 
-    let context = SimpleContext {
+    let context = SimpleContextData {
         counter: Arc::new(Mutex::new(0)),
     };
     let storage = InMemoryStorage::default();
-    let mut job_impl_manager = JobImplManager::default();
-    job_impl_manager.register::<SimpleJob>();
-    let manager = JobfireManager::start(
+    let mut job_actions_registry = JobActionsRegistry::default();
+    job_actions_registry.register::<SimpleJob>();
+    let on_fail_runner = SimpleOnF
+    let job_runner = SimpleJobRunner::new(
+        storage,
         context,
-        storage.into(),
-        job_impl_manager,
-        JobWorkerSettings::default(),
-    )
-    .unwrap();
+        job_actions_registry,
+        on_fail_runner,
+        on_success_runner,
+    );
+    let manager = JobfireManager::start(context, storage).unwrap();
 
     let jobs = vec![
         PendingJob::new_at(Utc::now(), SimpleJob).unwrap(),

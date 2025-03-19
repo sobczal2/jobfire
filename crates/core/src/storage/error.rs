@@ -4,6 +4,10 @@ use thiserror::Error;
 pub enum Error {
     #[error("not found")]
     NotFound,
+    #[error("already exists")]
+    AlreadyExists,
+    #[error("internal")]
+    Internal,
     #[error("custom: {message}")]
     Custom { message: String },
 }

@@ -2,8 +2,11 @@ use std::sync::{Arc, RwLock};
 
 use jobfire_core::{
     async_trait,
-    domain::{error::Error, job::FailedJob},
-    storage::job::FailedJobRepo,
+    domain::job::{failed::FailedJob, id::JobId},
+    storage::{
+        error::{Error, Result},
+        job::FailedJobRepo,
+    },
 };
 
 pub(crate) struct FailedJobRepoImpl {
@@ -20,11 +23,27 @@ impl Default for FailedJobRepoImpl {
 
 #[async_trait]
 impl FailedJobRepo for FailedJobRepoImpl {
-    async fn add(&self, failed_job: FailedJob) -> jobfire_core::storage::error::Result<()> {
+    async fn get(&self, job_id: &JobId) -> Result<Option<FailedJob>> {
+        Ok(self
+            .elements
+            .read()
+            .map_err(|_| Error::Internal)?
+            .iter()
+            .find(|e| e.id() == job_id)
+            .cloned())
+    }
+
+    async fn add(&self, failed_job: &FailedJob) -> Result<()> {
+        let existing = self.get(failed_job.id()).await?;
+        if existing.is_some() {
+            return Err(Error::AlreadyExists);
+        }
+
         self.elements
             .write()
-            .map_err(|e| jobfire_core::storage::error::Error::new(e.to_string()))?
-            .push(failed_job);
+            .map_err(|_| Error::Internal)?
+            .push(failed_job.clone());
+
         Ok(())
     }
 }

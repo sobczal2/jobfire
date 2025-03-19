@@ -3,11 +3,11 @@ use std::sync::{Arc, RwLock};
 use chrono::Utc;
 use jobfire_core::{
     async_trait,
-    domain::{
-        error::Error,
-        job::{JobId, PendingJob},
+    domain::job::{id::JobId, pending::PendingJob},
+    storage::{
+        error::{Error, Result},
+        job::PendingJobRepo,
     },
-    storage::job::PendingJobRepo,
 };
 
 pub(crate) struct PendingJobRepoImpl {
@@ -24,38 +24,59 @@ impl Default for PendingJobRepoImpl {
 
 #[async_trait]
 impl PendingJobRepo for PendingJobRepoImpl {
-    async fn add(&self, pending_job: PendingJob) -> jobfire_core::storage::error::Result<()> {
+    async fn get(&self, job_id: &JobId) -> Result<Option<PendingJob>> {
+        Ok(self
+            .elements
+            .read()
+            .map_err(|_| Error::Internal)?
+            .iter()
+            .find(|e| e.id() == job_id)
+            .cloned())
+    }
+
+    async fn add(&self, pending_job: &PendingJob) -> Result<()> {
+        let existing = self.get(pending_job.id()).await?;
+        if existing.is_some() {
+            return Err(Error::AlreadyExists);
+        }
+
         self.elements
             .write()
-            .map_err(|e| jobfire_core::storage::error::Error::new(e.to_string()))?
-            .push(pending_job);
+            .map_err(|_| Error::Internal)?
+            .push(pending_job.clone());
         Ok(())
     }
 
-    async fn find_scheduled(&self) -> jobfire_core::storage::error::Result<Option<PendingJob>> {
-        let elements = self
+    async fn pop_scheduled(&self) -> Result<Option<PendingJob>> {
+        Ok(self
             .elements
             .read()
-            .map_err(|e| jobfire_core::storage::error::Error::new(e.to_string()))?;
-        let now = Utc::now();
-        let job = elements.iter().find(|j| j.scheduled_at() < &now).cloned();
-        Ok(job)
+            .map_err(|_| Error::Internal)?
+            .iter()
+            .find(|e| *e.scheduled_at() < Utc::now())
+            .cloned())
     }
 
-    async fn delete(&self, id: JobId) -> jobfire_core::storage::error::Result<()> {
-        let mut elements = self
+    async fn delete(&self, job_id: &JobId) -> Result<()> {
+        let existing_index = self
             .elements
-            .write()
-            .map_err(|e| jobfire_core::storage::error::Error::new(e.to_string()))?;
-        let to_remove_index = elements
+            .read()
+            .map_err(|_| Error::Internal)?
             .iter()
             .enumerate()
-            .find(|(_, j)| *j.id() == id)
-            .ok_or(jobfire_core::storage::error::Error::new(
-                "element not found".to_owned(),
-            ))?
-            .0;
-        elements.swap_remove(to_remove_index);
+            .find(|(_, e)| e.id() == job_id)
+            .map(|(i, _)| i);
+
+        if existing_index.is_none() {
+            return Err(Error::NotFound);
+        }
+        let existing_index = existing_index.unwrap();
+
+        self.elements
+            .write()
+            .map_err(|_| Error::Internal)?
+            .swap_remove(existing_index);
+
         Ok(())
     }
 }

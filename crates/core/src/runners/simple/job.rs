@@ -32,8 +32,8 @@ pub struct SimpleJobRunner<TData: JobContextData> {
     storage: Storage,
     context: JobContext<TData>,
     job_actions_registry: JobActionsRegistry<TData>,
-    on_fail_runner: Box<dyn OnFailRunner<TData>>,
     on_success_runner: Box<dyn OnSuccessRunner<TData>>,
+    on_fail_runner: Box<dyn OnFailRunner<TData>>,
 }
 
 #[async_trait]
@@ -50,15 +50,15 @@ impl<TData: JobContextData> SimpleJobRunner<TData> {
         storage: Storage,
         context: JobContext<TData>,
         job_actions_registry: JobActionsRegistry<TData>,
-        on_fail_runner: Box<dyn OnFailRunner<TData>>,
         on_success_runner: Box<dyn OnSuccessRunner<TData>>,
+        on_fail_runner: Box<dyn OnFailRunner<TData>>,
     ) -> Self {
         Self {
             storage,
             context,
             job_actions_registry,
-            on_fail_runner,
             on_success_runner,
+            on_fail_runner,
         }
     }
 
@@ -78,11 +78,11 @@ impl<TData: JobContextData> SimpleJobRunner<TData> {
         match run_result {
             Ok(report) => {
                 let input = OnSuccessRunnerInput::new(pending_job.clone());
-                self.on_success_runner.run(&input);
+                self.on_success_runner.run(&input).await;
             }
             Err(error) => {
                 let input = OnFailRunnerInput::new(pending_job.clone());
-                self.on_fail_runner.run(&input);
+                self.on_fail_runner.run(&input).await;
             }
         }
         Ok(())
