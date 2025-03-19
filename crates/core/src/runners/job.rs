@@ -17,5 +17,5 @@ impl JobRunnerInput {
 
 #[async_trait]
 pub trait JobRunner<TData: JobContextData>: Send + Sync + 'static {
-    async fn run(&self, job_runner_input: &JobRunnerInput);
+    async fn run(&self, input: &JobRunnerInput);
 }

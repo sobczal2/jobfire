@@ -48,13 +48,27 @@ impl PendingJobRepo for PendingJobRepoImpl {
     }
 
     async fn pop_scheduled(&self) -> Result<Option<PendingJob>> {
-        Ok(self
+        let existing_index = self
             .elements
             .read()
             .map_err(|_| Error::Internal)?
             .iter()
-            .find(|e| *e.scheduled_at() < Utc::now())
-            .cloned())
+            .enumerate()
+            .find(|(_, e)| *e.scheduled_at() < Utc::now())
+            .map(|(i, _)| i);
+
+        if existing_index.is_none() {
+            return Ok(None);
+        }
+        let existing_index = existing_index.unwrap();
+
+        let popped_element = self
+            .elements
+            .write()
+            .map_err(|_| Error::Internal)?
+            .swap_remove(existing_index);
+
+        Ok(Some(popped_element))
     }
 
     async fn delete(&self, job_id: &JobId) -> Result<()> {

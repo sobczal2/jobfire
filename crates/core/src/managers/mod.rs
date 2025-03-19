@@ -1,5 +1,7 @@
 pub mod job_scheduler;
 
+use std::sync::Arc;
+
 use thiserror::Error;
 
 use crate::{
@@ -31,7 +33,7 @@ impl JobfireManager {
     pub fn start<TData: JobContextData>(
         context: JobContext<TData>,
         storage: Storage,
-        job_runner: Box<dyn JobRunner<TData>>,
+        job_runner: Arc<dyn JobRunner<TData>>,
         job_worker_settings: JobWorkerSettings,
     ) -> Result<Self> {
         let job_worker_handle =

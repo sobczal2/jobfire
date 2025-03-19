@@ -17,5 +17,5 @@ impl OnFailRunnerInput {
 
 #[async_trait]
 pub trait OnFailRunner<TData: JobContextData>: Send + Sync + 'static {
-    async fn run(&self, on_fail_runner_input: &OnFailRunnerInput);
+    async fn run(&self, input: &OnFailRunnerInput);
 }

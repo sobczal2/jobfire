@@ -38,8 +38,8 @@ pub struct SimpleJobRunner<TData: JobContextData> {
 
 #[async_trait]
 impl<TData: JobContextData> JobRunner<TData> for SimpleJobRunner<TData> {
-    async fn run(&self, job_runner_input: &JobRunnerInput) {
-        if let Err(error) = self.run_internal(job_runner_input).await {
+    async fn run(&self, input: &JobRunnerInput) {
+        if let Err(error) = self.run_internal(input).await {
             log::error!("error during job run: {error}");
         }
     }
@@ -62,8 +62,8 @@ impl<TData: JobContextData> SimpleJobRunner<TData> {
         }
     }
 
-    async fn run_internal(&self, job_runner_input: &JobRunnerInput) -> Result<()> {
-        let pending_job = job_runner_input.pending_job();
+    async fn run_internal(&self, input: &JobRunnerInput) -> Result<()> {
+        let pending_job = input.pending_job();
         self.save_running_job(pending_job).await?;
 
         let job_actions = self

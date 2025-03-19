@@ -17,5 +17,5 @@ impl OnSuccessRunnerInput {
 
 #[async_trait]
 pub trait OnSuccessRunner<TData: JobContextData>: Send + Sync + 'static {
-    async fn run(&self, on_success_runner_input: &OnSuccessRunnerInput);
+    async fn run(&self, input: &OnSuccessRunnerInput);
 }

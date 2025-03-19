@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use chrono::Duration;
 use thiserror::Error;
 use tokio::{
@@ -74,7 +76,7 @@ pub(crate) struct JobWorker<TData: JobContextData> {
     rx: mpsc::Receiver<JobWorkerCommand>,
     storage: Storage,
     context: JobContext<TData>,
-    job_runner: Box<dyn JobRunner<TData>>,
+    job_runner: Arc<dyn JobRunner<TData>>,
     stop_requested: bool,
     stopped: bool,
 }
@@ -84,7 +86,7 @@ impl<TData: JobContextData> JobWorker<TData> {
         settings: JobWorkerSettings,
         storage: Storage,
         context: JobContext<TData>,
-        job_runner: Box<dyn JobRunner<TData>>,
+        job_runner: Arc<dyn JobRunner<TData>>,
     ) -> JobWorkerHandle {
         let (tx, rx) = mpsc::channel(settings.command_channel_size);
         let worker = Self {
@@ -125,8 +127,12 @@ impl<TData: JobContextData> JobWorker<TData> {
             match self.storage.pending_job_repo().pop_scheduled().await {
                 Ok(pending_job) => {
                     if let Some(pending_job) = pending_job {
-                        let input = JobRunnerInput::new(pending_job);
-                        self.job_runner.run(&input);
+                        let pending_job = pending_job.clone();
+                        let job_runner = self.job_runner.clone();
+                        tokio::spawn(async move {
+                            let input = JobRunnerInput::new(pending_job);
+                            job_runner.run(&input).await;
+                        });
                     }
                     continue;
                 }
