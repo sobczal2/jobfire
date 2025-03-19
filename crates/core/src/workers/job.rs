@@ -6,7 +6,7 @@ use tokio::{
 };
 
 use crate::{
-    domain::job::JobContext,
+    domain::job::context::{JobContext, JobContextData},
     runners::job::{JobRunner, JobRunnerInput},
     storage::Storage,
 };
@@ -69,22 +69,22 @@ impl Default for JobWorkerSettings {
     }
 }
 
-pub(crate) struct JobWorker<TJobContext: JobContext> {
+pub(crate) struct JobWorker<TData: JobContextData> {
     settings: JobWorkerSettings,
     rx: mpsc::Receiver<JobWorkerCommand>,
     storage: Storage,
-    context: TJobContext,
-    job_runner: Box<dyn JobRunner<TJobContext>>,
+    context: JobContext<TData>,
+    job_runner: Box<dyn JobRunner<TData>>,
     stop_requested: bool,
     stopped: bool,
 }
 
-impl<TJobContext: JobContext> JobWorker<TJobContext> {
+impl<TData: JobContextData> JobWorker<TData> {
     pub(crate) fn start(
         settings: JobWorkerSettings,
         storage: Storage,
-        context: TJobContext,
-        job_runner: Box<dyn JobRunner<TJobContext>>,
+        context: JobContext<TData>,
+        job_runner: Box<dyn JobRunner<TData>>,
     ) -> JobWorkerHandle {
         let (tx, rx) = mpsc::channel(settings.command_channel_size);
         let worker = Self {

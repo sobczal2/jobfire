@@ -3,7 +3,10 @@ pub mod job_scheduler;
 use thiserror::Error;
 
 use crate::{
-    domain::job::{JobContext, PendingJob},
+    domain::job::{
+        context::{JobContext, JobContextData},
+        pending::PendingJob,
+    },
     runners::job::JobRunner,
     storage::{self, Storage},
     workers::job::{JobWorker, JobWorkerHandle, JobWorkerSettings},
@@ -19,17 +22,17 @@ pub enum Error {
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-pub struct JobfireManager<T: JobContext> {
-    context: T,
+pub struct JobfireManager<TData: JobContextData> {
+    context: JobContext<TData>,
     storage: Storage,
     job_worker_handle: JobWorkerHandle,
 }
 
-impl<TJobContext: JobContext> JobfireManager<TJobContext> {
+impl<TData: JobContextData> JobfireManager<TData> {
     pub fn start(
-        context: TJobContext,
+        context: JobContext<TData>,
         storage: Storage,
-        job_runner: Box<dyn JobRunner<TJobContext>>,
+        job_runner: Box<dyn JobRunner<TData>>,
         job_worker_settings: JobWorkerSettings,
     ) -> Result<Self> {
         let job_worker_handle = JobWorker::start(

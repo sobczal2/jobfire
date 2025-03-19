@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use getset::Getters;
 
-use crate::domain::job::{JobContext, PendingJob};
+use crate::domain::job::{context::JobContextData, pending::PendingJob};
 
 #[derive(Getters)]
 #[getset(get = "pub")]
@@ -16,6 +16,6 @@ impl JobRunnerInput {
 }
 
 #[async_trait]
-pub trait JobRunner<TJobContext: JobContext>: Send + Sync + 'static {
+pub trait JobRunner<TData: JobContextData>: Send + Sync + 'static {
     async fn run(&self, job_runner_input: &JobRunnerInput);
 }

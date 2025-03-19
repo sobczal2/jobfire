@@ -17,8 +17,9 @@ pub enum Error {
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
+
 #[async_trait]
-pub trait JobScheduler: Clone + Send + Sync + 'static {
+pub trait JobScheduler: Send + Sync + 'static {
     async fn schedule(&self, pending_job: &PendingJob) -> Result<()>;
     async fn cancel(&self, job_id: &JobId) -> Result<()>;
     async fn reschedule(&self, job_id: &JobId, new_scheduled_at: DateTime<Utc>) -> Result<()>;

@@ -1,24 +1,17 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use thiserror::Error;
 
 use crate::{
-    domain::job::{JobId, JobScheduler, PendingJob},
+    domain::job::{
+        self,
+        id::JobId,
+        pending::PendingJob,
+        scheduler::{self, JobScheduler},
+    },
     storage::{self, Storage},
 };
 
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("storage error: {0}")]
-    Storage(#[from] storage::error::Error),
-    #[error("job not found")]
-    JobNotFound,
-    #[error("job already scheduled")]
-    JobAlreadyScheduled,
-}
-
-pub type Result<T> = std::result::Result<T, Error>;
-
+#[derive(Clone)]
 pub struct JobSchedulerImpl {
     storage: Storage,
 }
@@ -31,7 +24,7 @@ impl JobSchedulerImpl {
 
 #[async_trait]
 impl JobScheduler for JobSchedulerImpl {
-    async fn schedule(&self, pending_job: &PendingJob) -> Result<()> {
+    async fn schedule(&self, pending_job: &PendingJob) -> job::scheduler::Result<()> {
         if self
             .storage
             .pending_job_repo()
@@ -39,26 +32,30 @@ impl JobScheduler for JobSchedulerImpl {
             .await?
             .is_some()
         {
-            return Err(Error::JobAlreadyScheduled);
+            return Err(scheduler::Error::JobAlreadyScheduled);
         }
         self.storage.pending_job_repo().add(pending_job).await?;
         Ok(())
     }
 
-    async fn cancel(&self, job_id: &JobId) -> Result<()> {
+    async fn cancel(&self, job_id: &JobId) -> job::scheduler::Result<()> {
         match self.storage.pending_job_repo().delete(job_id).await {
             Ok(_) => Ok(()),
             Err(error) => match error {
-                storage::error::Error::NotFound => Err(Error::JobNotFound),
-                _ => Err(Error::Storage(error)),
+                storage::error::Error::NotFound => Err(scheduler::Error::JobNotFound),
+                _ => Err(scheduler::Error::Storage(error)),
             },
         }
     }
 
-    async fn reschedule(&self, job_id: &JobId, new_scheduled_at: DateTime<Utc>) -> Result<()> {
+    async fn reschedule(
+        &self,
+        job_id: &JobId,
+        new_scheduled_at: DateTime<Utc>,
+    ) -> job::scheduler::Result<()> {
         let scheduled_job = self.storage.pending_job_repo().get(job_id).await?;
         if scheduled_job.is_none() {
-            return Err(Error::JobNotFound);
+            return Err(scheduler::Error::JobNotFound);
         }
         let mut scheduled_job = scheduled_job.unwrap();
         scheduled_job.reschedule(new_scheduled_at);

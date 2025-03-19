@@ -1,6 +1,9 @@
 use async_trait::async_trait;
 
-use crate::domain::job::{FailedJob, JobId, PendingJob, RunningJob, SuccessfulJob};
+use crate::domain::job::{
+    failed::FailedJob, id::JobId, pending::PendingJob, running::RunningJob,
+    successful::SuccessfulJob,
+};
 
 use super::error::Result;
 

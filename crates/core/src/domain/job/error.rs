@@ -3,6 +3,8 @@ use thiserror::Error;
 
 #[derive(Error, Clone, Serialize, Deserialize, Debug)]
 pub enum Error {
+    #[error("job impl build failed")]
+    JobImplBuildFailed,
     #[error("job failed: {message}")]
     Custom { message: String },
 }

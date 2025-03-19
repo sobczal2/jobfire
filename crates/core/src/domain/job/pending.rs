@@ -5,7 +5,7 @@ use serde_json::{Value, to_value};
 use thiserror::Error;
 
 use super::{
-    context::JobContext,
+    context::{JobContext, JobContextData},
     id::JobId,
     r#impl::{JobImpl, JobImplName},
 };
@@ -29,12 +29,12 @@ pub struct PendingJob {
 }
 
 impl PendingJob {
-    pub(crate) fn new<TJobContext: JobContext>(
+    pub(crate) fn new<TData: JobContextData>(
         id: JobId,
         created_at: DateTime<Utc>,
         scheduled_at: DateTime<Utc>,
-        r#impl: impl JobImpl<TJobContext>,
-    ) -> super::error::Result<Self> {
+        r#impl: impl JobImpl<TData>,
+    ) -> Result<Self> {
         let impl_name = r#impl.name_dyn();
         Ok(Self {
             id,
@@ -45,10 +45,10 @@ impl PendingJob {
         })
     }
 
-    pub fn new_at<TJobContext: JobContext>(
+    pub fn new_at<TJobContext: JobContextData>(
         scheduled_at: DateTime<Utc>,
         r#impl: impl JobImpl<TJobContext>,
-    ) -> super::error::Result<Self> {
+    ) -> Result<Self> {
         Self::new(JobId::new(), Utc::now(), scheduled_at, r#impl)
     }
 

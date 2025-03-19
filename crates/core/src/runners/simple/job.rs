@@ -3,7 +3,12 @@ use chrono::Utc;
 use thiserror::Error;
 
 use crate::{
-    domain::job::{JobContext, JobId, PendingJob, RunningJob},
+    domain::job::{
+        context::{JobContext, JobContextData},
+        id::JobId,
+        pending::PendingJob,
+        running::RunningJob,
+    },
     registries::job_actions::JobActionsRegistry,
     runners::{
         job::{JobRunner, JobRunnerInput},
@@ -23,16 +28,16 @@ enum Error {
 
 type Result<T> = std::result::Result<T, Error>;
 
-pub struct SimpleJobRunner<TJobContext: JobContext> {
+pub struct SimpleJobRunner<TData: JobContextData> {
     storage: Storage,
-    context: TJobContext,
-    job_actions_registry: JobActionsRegistry<TJobContext>,
-    on_fail_runner: Box<dyn OnFailRunner<TJobContext>>,
-    on_success_runner: Box<dyn OnSuccessRunner<TJobContext>>,
+    context: JobContext<TData>,
+    job_actions_registry: JobActionsRegistry<TData>,
+    on_fail_runner: Box<dyn OnFailRunner<TData>>,
+    on_success_runner: Box<dyn OnSuccessRunner<TData>>,
 }
 
 #[async_trait]
-impl<TJobContext: JobContext> JobRunner<TJobContext> for SimpleJobRunner<TJobContext> {
+impl<TData: JobContextData> JobRunner<TData> for SimpleJobRunner<TData> {
     async fn run(&self, job_runner_input: &JobRunnerInput) {
         if let Err(error) = self.run_internal(job_runner_input).await {
             log::error!("error during job run: {error}");
@@ -40,13 +45,13 @@ impl<TJobContext: JobContext> JobRunner<TJobContext> for SimpleJobRunner<TJobCon
     }
 }
 
-impl<TJobContext: JobContext> SimpleJobRunner<TJobContext> {
+impl<TData: JobContextData> SimpleJobRunner<TData> {
     pub fn new(
         storage: Storage,
-        context: TJobContext,
-        job_actions_registry: JobActionsRegistry<TJobContext>,
-        on_fail_runner: Box<dyn OnFailRunner<TJobContext>>,
-        on_success_runner: Box<dyn OnSuccessRunner<TJobContext>>,
+        context: JobContext<TData>,
+        job_actions_registry: JobActionsRegistry<TData>,
+        on_fail_runner: Box<dyn OnFailRunner<TData>>,
+        on_success_runner: Box<dyn OnSuccessRunner<TData>>,
     ) -> Self {
         Self {
             storage,

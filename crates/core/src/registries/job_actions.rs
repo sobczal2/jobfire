@@ -2,35 +2,35 @@ use std::{collections::HashMap, pin::Pin, sync::Arc};
 
 use thiserror::Error;
 
-use crate::{
-    domain::job::{self, JobContext, JobImpl, JobImplName, PendingJob, Report},
-    managers::job_scheduler::{self, JobScheduler},
+use crate::domain::job::{
+    self,
+    context::{JobContext, JobContextData},
+    r#impl::{JobImpl, JobImplName},
+    pending::PendingJob,
+    report::Report,
 };
 
-pub type RunFn<TJobContext: JobContext> = Arc<
+pub type RunFn<TData: JobContextData> = Arc<
     dyn Fn(
             PendingJob,
-            TJobContext,
-            JobScheduler,
-        ) -> Pin<Box<dyn Future<Output = job::Result<Report>> + Send>>
+            JobContext<TData>,
+        ) -> Pin<Box<dyn Future<Output = job::error::Result<Report>> + Send>>
         + Send
         + Sync,
 >;
-pub type OnSuccessFn<TJobContext: JobContext> = Arc<
+pub type OnSuccessFn<TData: JobContextData> = Arc<
     dyn Fn(
             PendingJob,
-            TJobContext,
-            JobScheduler,
-        ) -> Pin<Box<dyn Future<Output = job::Result<()>> + Send>>
+            JobContext<TData>,
+        ) -> Pin<Box<dyn Future<Output = job::error::Result<()>> + Send>>
         + Send
         + Sync,
 >;
-pub type OnFailFn<TJobContext: JobContext> = Arc<
+pub type OnFailFn<TData: JobContextData> = Arc<
     dyn Fn(
             PendingJob,
-            TJobContext,
-            JobScheduler,
-        ) -> Pin<Box<dyn Future<Output = job::Result<()>> + Send>>
+            JobContext<TData>,
+        ) -> Pin<Box<dyn Future<Output = job::error::Result<()>> + Send>>
         + Send
         + Sync,
 >;
@@ -44,57 +44,54 @@ pub enum Error {
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Clone)]
-pub struct JobActions<TJobContext: JobContext> {
-    run: RunFn<TJobContext>,
-    on_success: OnSuccessFn<TJobContext>,
-    on_fail: OnFailFn<TJobContext>,
+pub struct JobActions<TData: JobContextData> {
+    run: RunFn<TData>,
+    on_success: OnSuccessFn<TData>,
+    on_fail: OnFailFn<TData>,
 }
 
-impl<TJobContext: JobContext> JobActions<TJobContext> {
+impl<TData: JobContextData> JobActions<TData> {
     pub async fn run(
         &self,
         pending_job: &PendingJob,
-        job_context: TJobContext,
-        job_scheduler: JobScheduler,
-    ) -> job::Result<Report> {
-        (self.run.clone())(pending_job.clone(), job_context, job_scheduler).await
+        job_context: JobContext<TData>,
+    ) -> job::error::Result<Report> {
+        (self.run.clone())(pending_job.clone(), job_context).await
     }
 
     pub async fn on_success(
         &self,
         pending_job: &PendingJob,
-        job_context: TJobContext,
-        job_scheduler: JobScheduler,
-    ) -> job::Result<()> {
-        (self.on_success.clone())(pending_job.clone(), job_context, job_scheduler).await
+        job_context: JobContext<TData>,
+    ) -> job::error::Result<()> {
+        (self.on_success.clone())(pending_job.clone(), job_context).await
     }
 
     pub async fn on_fail(
         &self,
         pending_job: &PendingJob,
-        job_context: TJobContext,
-        job_scheduler: JobScheduler,
-    ) -> job::Result<()> {
-        (self.on_fail.clone())(pending_job.clone(), job_context, job_scheduler).await
+        job_context: JobContext<TData>,
+    ) -> job::error::Result<()> {
+        (self.on_fail.clone())(pending_job.clone(), job_context).await
     }
 }
 
 #[derive(Clone)]
-pub struct JobActionsRegistry<TJobContext: JobContext> {
-    job_actions_map: HashMap<JobImplName, JobActions<TJobContext>>,
+pub struct JobActionsRegistry<TData: JobContextData> {
+    job_actions_map: HashMap<JobImplName, JobActions<TData>>,
 }
 
-impl<TJobContext: JobContext> JobActionsRegistry<TJobContext> {
-    pub fn new(job_actions_map: HashMap<JobImplName, JobActions<TJobContext>>) -> Self {
+impl<TData: JobContextData> JobActionsRegistry<TData> {
+    pub fn new(job_actions_map: HashMap<JobImplName, JobActions<TData>>) -> Self {
         Self { job_actions_map }
     }
 
-    pub fn register<TJobImpl: JobImpl<TJobContext>>(&mut self) {
-        let run: RunFn<TJobContext> =
-            Arc::new(|pending_job: PendingJob, job_context, job_scheduler| {
+    pub fn register<TJobImpl: JobImpl<TData>>(&mut self) {
+        let run: RunFn<TData> =
+            Arc::new(|pending_job: PendingJob, job_context: JobContext<TData>| {
                 Box::pin(async move {
                     let job_impl = serde_json::from_value::<TJobImpl>(pending_job.r#impl().clone())
-                        .map_err(|_| job::Error::JobImplBuildFailed);
+                        .map_err(|_| job::error::Error::JobImplBuildFailed);
                     match job_impl {
                         Ok(job_impl) => job_impl.run(job_context).await,
                         Err(e) => {
@@ -105,11 +102,11 @@ impl<TJobContext: JobContext> JobActionsRegistry<TJobContext> {
                 })
             });
 
-        let on_success: OnSuccessFn<TJobContext> =
-            Arc::new(|pending_job: PendingJob, job_context, job_scheduler| {
+        let on_success: OnSuccessFn<TData> =
+            Arc::new(|pending_job: PendingJob, job_context: JobContext<TData>| {
                 Box::pin(async move {
                     let job_impl = serde_json::from_value::<TJobImpl>(pending_job.r#impl().clone())
-                        .map_err(|_| job::Error::JobImplBuildFailed);
+                        .map_err(|_| job::error::Error::JobImplBuildFailed);
                     match job_impl {
                         Ok(job_impl) => job_impl.on_success(job_context).await,
                         Err(e) => {
@@ -120,11 +117,11 @@ impl<TJobContext: JobContext> JobActionsRegistry<TJobContext> {
                 })
             });
 
-        let on_fail: OnFailFn<TJobContext> =
-            Arc::new(|pending_job: PendingJob, job_context, job_scheduler| {
+        let on_fail: OnFailFn<TData> =
+            Arc::new(|pending_job: PendingJob, job_context: JobContext<TData>| {
                 Box::pin(async move {
                     let job_impl = serde_json::from_value::<TJobImpl>(pending_job.r#impl().clone())
-                        .map_err(|_| job::Error::JobImplBuildFailed);
+                        .map_err(|_| job::error::Error::JobImplBuildFailed);
                     match job_impl {
                         Ok(job_impl) => job_impl.on_fail(job_context).await,
                         Err(e) => {
@@ -145,27 +142,24 @@ impl<TJobContext: JobContext> JobActionsRegistry<TJobContext> {
         );
     }
 
-    pub fn get(&self, job_impl_name: &JobImplName) -> Option<JobActions<TJobContext>> {
+    pub fn get(&self, job_impl_name: &JobImplName) -> Option<JobActions<TData>> {
         self.job_actions_map.get(&job_impl_name).cloned()
     }
 
-    pub fn get_run_fn(&self, job_impl_name: &JobImplName) -> Option<RunFn<TJobContext>> {
+    pub fn get_run_fn(&self, job_impl_name: &JobImplName) -> Option<RunFn<TData>> {
         self.get(job_impl_name).map(|ja| ja.run.clone())
     }
 
-    pub fn get_on_success_fn(
-        &self,
-        job_impl_name: &JobImplName,
-    ) -> Option<OnSuccessFn<TJobContext>> {
+    pub fn get_on_success_fn(&self, job_impl_name: &JobImplName) -> Option<OnSuccessFn<TData>> {
         self.get(job_impl_name).map(|ja| ja.on_success.clone())
     }
 
-    pub fn get_on_fail_fn(&self, job_impl_name: &JobImplName) -> Option<OnFailFn<TJobContext>> {
+    pub fn get_on_fail_fn(&self, job_impl_name: &JobImplName) -> Option<OnFailFn<TData>> {
         self.get(job_impl_name).map(|ja| ja.on_fail.clone())
     }
 }
 
-impl<TJobContext: JobContext> Default for JobActionsRegistry<TJobContext> {
+impl<TData: JobContextData> Default for JobActionsRegistry<TData> {
     fn default() -> Self {
         Self::new(HashMap::new())
     }
