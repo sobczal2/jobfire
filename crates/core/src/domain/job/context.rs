@@ -25,4 +25,8 @@ impl<TData: JobContextData> JobContext<TData> {
             job_scheduler,
         }
     }
+
+    pub fn data(&self) -> Arc<TData> {
+        self.data.clone()
+    }
 }

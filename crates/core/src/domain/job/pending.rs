@@ -5,7 +5,7 @@ use serde_json::{Value, to_value};
 use thiserror::Error;
 
 use super::{
-    context::{JobContext, JobContextData},
+    context::JobContextData,
     id::JobId,
     r#impl::{JobImpl, JobImplName},
 };

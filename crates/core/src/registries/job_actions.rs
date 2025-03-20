@@ -4,12 +4,15 @@ use std::{collections::HashMap, pin::Pin, sync::Arc};
 
 use thiserror::Error;
 
-use crate::domain::job::{
-    self,
-    context::{JobContext, JobContextData},
-    r#impl::{JobImpl, JobImplName},
-    pending::PendingJob,
-    report::Report,
+use crate::{
+    domain::job::{
+        self,
+        context::{JobContext, JobContextData},
+        r#impl::{JobImpl, JobImplName},
+        pending::PendingJob,
+        report::Report,
+    },
+    runners::on_fail,
 };
 
 pub type RunFn<TData: JobContextData> = Arc<
@@ -51,6 +54,20 @@ pub struct JobActions<TData: JobContextData> {
     on_fail: OnFailFn<TData>,
 }
 
+impl<TData: JobContextData> JobActions<TData> {
+    pub fn new(
+        run: RunFn<TData>,
+        on_success: OnSuccessFn<TData>,
+        on_fail: OnFailFn<TData>,
+    ) -> Self {
+        Self {
+            run,
+            on_success,
+            on_fail,
+        }
+    }
+}
+
 impl<TData: JobContextData> Clone for JobActions<TData> {
     fn clone(&self) -> Self {
         Self {
@@ -87,74 +104,31 @@ impl<TData: JobContextData> JobActions<TData> {
     }
 }
 
-#[derive(Clone)]
 pub struct JobActionsRegistry<TData: JobContextData> {
+    inner: Arc<JobActionsRegistryInner<TData>>,
+}
+
+impl<TData: JobContextData> Clone for JobActionsRegistry<TData> {
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.clone(),
+        }
+    }
+}
+
+struct JobActionsRegistryInner<TData: JobContextData> {
     job_actions_map: HashMap<JobImplName, JobActions<TData>>,
 }
 
 impl<TData: JobContextData> JobActionsRegistry<TData> {
     pub fn new(job_actions_map: HashMap<JobImplName, JobActions<TData>>) -> Self {
-        Self { job_actions_map }
-    }
-
-    pub fn register<TJobImpl: JobImpl<TData>>(&mut self) {
-        let run: RunFn<TData> =
-            Arc::new(|pending_job: PendingJob, job_context: JobContext<TData>| {
-                Box::pin(async move {
-                    let job_impl = serde_json::from_value::<TJobImpl>(pending_job.r#impl().clone())
-                        .map_err(|_| job::error::Error::JobImplBuildFailed);
-                    match job_impl {
-                        Ok(job_impl) => job_impl.run(job_context).await,
-                        Err(e) => {
-                            log::error!("failed to run job action");
-                            Err(e)
-                        }
-                    }
-                })
-            });
-
-        let on_success: OnSuccessFn<TData> =
-            Arc::new(|pending_job: PendingJob, job_context: JobContext<TData>| {
-                Box::pin(async move {
-                    let job_impl = serde_json::from_value::<TJobImpl>(pending_job.r#impl().clone())
-                        .map_err(|_| job::error::Error::JobImplBuildFailed);
-                    match job_impl {
-                        Ok(job_impl) => job_impl.on_success(job_context).await,
-                        Err(e) => {
-                            log::error!("failed to run on_success job action");
-                            Err(e)
-                        }
-                    }
-                })
-            });
-
-        let on_fail: OnFailFn<TData> =
-            Arc::new(|pending_job: PendingJob, job_context: JobContext<TData>| {
-                Box::pin(async move {
-                    let job_impl = serde_json::from_value::<TJobImpl>(pending_job.r#impl().clone())
-                        .map_err(|_| job::error::Error::JobImplBuildFailed);
-                    match job_impl {
-                        Ok(job_impl) => job_impl.on_fail(job_context).await,
-                        Err(e) => {
-                            log::error!("failed to run on_fail job action");
-                            Err(e)
-                        }
-                    }
-                })
-            });
-
-        self.job_actions_map.insert(
-            TJobImpl::name(),
-            JobActions {
-                run,
-                on_success,
-                on_fail,
-            },
-        );
+        Self {
+            inner: Arc::new(JobActionsRegistryInner { job_actions_map }),
+        }
     }
 
     pub fn get(&self, job_impl_name: &JobImplName) -> Option<JobActions<TData>> {
-        self.job_actions_map.get(job_impl_name).cloned()
+        self.inner.job_actions_map.get(job_impl_name).cloned()
     }
 
     pub fn get_run_fn(&self, job_impl_name: &JobImplName) -> Option<RunFn<TData>> {

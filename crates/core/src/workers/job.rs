@@ -1,28 +1,38 @@
-use std::sync::Arc;
-
 use chrono::Duration;
+use std::sync::Arc;
 use thiserror::Error;
 use tokio::{
-    sync::{mpsc, oneshot},
-    time::{sleep, timeout},
+    sync::{RwLock, mpsc, oneshot},
+    time,
 };
 
 use crate::{
-    domain::job::context::{JobContext, JobContextData},
+    domain::job::{context::JobContextData, pending::PendingJob},
     runners::job::{JobRunner, JobRunnerInput},
-    storage::Storage,
+    storage::{self, Storage},
 };
 
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("failed to stop")]
-    StopFailed,
+    #[error("not stopped")]
+    NotStopped,
+    #[error("stopping failed")]
+    StoppingFailed,
+    #[error("already stopped")]
+    AlreadyStopped,
+    #[error("lock poisoned")]
+    LockPoisoned,
     #[error("invalid settings: {0}")]
     InvalidSettings(String),
+    #[error("storage error: {0}")]
+    StorageError(#[from] storage::error::Error),
+    #[error("channel closed")]
+    ChannelClosed,
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
 
+#[derive(Debug)]
 pub(crate) enum JobWorkerCommand {
     Stop(oneshot::Sender<Result<()>>),
 }
@@ -30,17 +40,26 @@ pub(crate) enum JobWorkerCommand {
 #[derive(Clone)]
 pub(crate) struct JobWorkerHandle {
     tx: mpsc::Sender<JobWorkerCommand>,
+    state: Arc<RwLock<State>>,
 }
 
 impl JobWorkerHandle {
-    pub async fn stop(&self) -> Result<()> {
-        let (rx, tx) = oneshot::channel();
-        self.tx
-            .send(JobWorkerCommand::Stop(rx))
-            .await
-            .map_err(|_| Error::StopFailed)?;
+    pub fn new(tx: mpsc::Sender<JobWorkerCommand>, state: Arc<RwLock<State>>) -> Self {
+        Self { tx, state }
+    }
 
-        tx.await.unwrap()
+    pub async fn stop(&self) -> Result<()> {
+        let (tx, rx) = oneshot::channel();
+        self.tx
+            .send(JobWorkerCommand::Stop(tx))
+            .await
+            .map_err(|_| Error::ChannelClosed)?;
+
+        rx.await.map_err(|_| Error::ChannelClosed)?
+    }
+
+    pub async fn get_state(&self) -> State {
+        self.state.read().await.clone()
     }
 }
 
@@ -71,89 +90,148 @@ impl Default for JobWorkerSettings {
     }
 }
 
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub enum State {
+    Starting,
+    Started,
+    Stopping,
+    Stopped,
+}
+
 pub(crate) struct JobWorker<TData: JobContextData> {
     settings: JobWorkerSettings,
-    rx: mpsc::Receiver<JobWorkerCommand>,
     storage: Storage,
-    context: JobContext<TData>,
-    job_runner: Arc<dyn JobRunner<TData>>,
-    stop_requested: bool,
-    stopped: bool,
+    job_runner: JobRunner<TData>,
+    state: Arc<RwLock<State>>,
 }
 
 impl<TData: JobContextData> JobWorker<TData> {
-    pub(crate) fn start(
+    pub fn new(
         settings: JobWorkerSettings,
         storage: Storage,
-        context: JobContext<TData>,
-        job_runner: Arc<dyn JobRunner<TData>>,
-    ) -> JobWorkerHandle {
-        let (tx, rx) = mpsc::channel(settings.command_channel_size);
-        let worker = Self {
+        job_runner: JobRunner<TData>,
+    ) -> Self {
+        Self {
             settings,
-            rx,
             storage,
-            context,
             job_runner,
-            stop_requested: false,
-            stopped: false,
-        };
-
-        tokio::spawn(async move { worker.run().await });
-
-        log::info!("JobWorker started");
-        JobWorkerHandle { tx }
+            state: Arc::new(RwLock::new(State::Stopped)),
+        }
     }
 
-    fn stop(&mut self) {
-        log::info!("JobWorker stopping");
-        self.stop_requested = true;
+    pub fn start(self) -> JobWorkerHandle {
+        let (tx, rx) = mpsc::channel(self.settings.command_channel_size);
+        let handle = JobWorkerHandle::new(tx.clone(), self.state.clone());
+        tokio::spawn(async move {
+            self.run(rx).await.unwrap();
+        });
+
+        handle
     }
 
-    async fn run(mut self) {
+    async fn read_state(&self) -> State {
+        let state = self.state.read().await;
+
+        log::debug!("reading state: {:?}", state);
+        state.clone()
+    }
+
+    async fn write_state(&self, new_state: State) {
+        log::debug!("writing state: {:?}", new_state);
+        let mut state = self.state.write().await;
+        *state = new_state;
+    }
+
+    async fn get_next_command(
+        &self,
+        rx: &mut mpsc::Receiver<JobWorkerCommand>,
+    ) -> Result<JobWorkerCommand> {
+        match rx.recv().await {
+            Some(command) => Ok(command),
+            None => Err(Error::ChannelClosed),
+        }
+    }
+
+    async fn handle_command(&self, command: JobWorkerCommand) -> Result<()> {
+        log::trace!("handling command: {:?}", command);
+        match command {
+            JobWorkerCommand::Stop(sender) => sender
+                .send(self.hadle_stop_command().await)
+                .map_err(|_| Error::ChannelClosed),
+        }
+    }
+
+    async fn hadle_stop_command(&self) -> Result<()> {
+        if self.read_state().await != State::Started {
+            return Err(Error::AlreadyStopped);
+        }
+
+        self.write_state(State::Stopping).await;
+
+        Ok(())
+    }
+
+    async fn get_next_pending_job(&self) -> Result<PendingJob> {
+        let mut interval = time::interval(self.settings.poll_rate.to_std().unwrap());
         loop {
-            if self.stop_requested {
-                log::info!("JobWorker stopped");
+            interval.tick().await;
+
+            match self.storage.pending_job_repo().pop_scheduled().await? {
+                Some(pending_job) => return Ok(pending_job),
+                None => continue,
+            }
+        }
+    }
+
+    async fn handle_pending_job(&self, pending_job: PendingJob) {
+        log::trace!("handling pending_job with id: {:?}", pending_job.id());
+        let job_runner = self.job_runner.clone();
+        tokio::spawn(async move {
+            let input = JobRunnerInput::new(pending_job);
+            job_runner.run(&input).await;
+        });
+    }
+
+    async fn run(&self, mut rx: mpsc::Receiver<JobWorkerCommand>) -> Result<()> {
+        if self.read_state().await != State::Stopped {
+            return Err(Error::NotStopped);
+        }
+
+        log::trace!("JobWorker starting");
+        self.write_state(State::Starting).await;
+
+        loop {
+            log::debug!("run loop start");
+            if self.read_state().await == State::Stopping {
+                self.write_state(State::Stopped).await;
+                log::trace!("JobWorker stopped");
                 break;
             }
 
-            if let Ok(Some(command)) =
-                timeout(self.settings.poll_rate.to_std().unwrap(), self.rx.recv()).await
-            {
-                self.handle_command(command).await;
-                continue;
-            }
+            log::trace!("JobWorker started");
+            self.write_state(State::Started).await;
 
-            match self.storage.pending_job_repo().pop_scheduled().await {
-                Ok(pending_job) => {
-                    if let Some(pending_job) = pending_job {
-                        let pending_job = pending_job.clone();
-                        let job_runner = self.job_runner.clone();
-                        tokio::spawn(async move {
-                            let input = JobRunnerInput::new(pending_job);
-                            job_runner.run(&input).await;
-                        });
+            tokio::select! {
+                command = self.get_next_command(&mut rx) => {
+                    match command {
+                        Ok(command) => {
+                            let result = self.handle_command(command).await;
+                            if result.is_err() {
+                                log::error!("error occurred: {:?}", result.err().unwrap());
+                            }
+                        }
+                        Err(error) => log::error!("error ocurred: {:?}", error),
                     }
-                    continue;
                 }
-                Err(err) => {
-                    log::error!("failed to retrieve pending job: {err}");
-                    continue;
+                pending_job = self.get_next_pending_job() => {
+                    match pending_job {
+                        Ok(pending_job) => self.handle_pending_job(pending_job).await,
+                        Err(error) => log::error!("error ocurred: {:?}", error),
+                    }
                 }
             }
         }
-    }
 
-    async fn handle_command(&mut self, command: JobWorkerCommand) {
-        match command {
-            JobWorkerCommand::Stop(sender) => {
-                self.stop();
-                // todo replace
-                sleep(self.settings.poll_rate.to_std().unwrap()).await;
-                if sender.send(Ok(())).is_err() {
-                    log::error!("failed to send back stop confirmation");
-                }
-            }
-        }
+        Ok(())
     }
 }

@@ -1,51 +1,57 @@
-use std::sync::{Arc, Mutex};
-
 use chrono::{Duration, Utc};
 use jobfire_core::{
     Uuid, async_trait,
+    builders::Builder,
     domain::job::{
         context::{JobContext, JobContextData},
-        error::{Error, Result},
+        error::Result,
         r#impl::{JobImpl, JobImplName},
         pending::PendingJob,
         report::Report,
+        scheduler::JobScheduler,
     },
-    managers::{
-        JobfireManager,
-        job_scheduler::{self, SimpleJobScheduler},
-    },
-    registries::job_actions::JobActionsRegistry,
-    runners::simple::{
-        job::SimpleJobRunner, on_fail::SimpleOnFailRunner, on_success::SimpleOnSuccessRunner,
-    },
-    storage::Storage,
-    workers::job::JobWorkerSettings,
+    managers::jobfire_manager::JobfireManager,
 };
-use jobfire_storage_in_memory::InMemoryStorage;
+use jobfire_storage_in_memory::WithInMemoryStorage;
 use serde::{Deserialize, Serialize};
 use simple_logger::SimpleLogger;
+use std::{
+    ops::{AddAssign, Deref},
+    sync::{Arc, Mutex},
+};
 use tokio::{signal::ctrl_c, time::sleep};
 
-#[derive(Clone)]
 struct SimpleContextData {
-    counter: Arc<Mutex<usize>>,
+    counter: Mutex<usize>,
+}
+
+impl SimpleContextData {
+    fn increment(&self) {
+        self.counter.lock().unwrap().add_assign(1);
+    }
+
+    fn read(&self) -> usize {
+        self.counter.lock().unwrap().clone()
+    }
 }
 
 impl JobContextData for SimpleContextData {}
 
 #[derive(Serialize, Deserialize)]
-struct SimpleJob {
+struct SimpleJobImpl {
     xd: Uuid,
 }
 
 #[async_trait]
-impl JobImpl<SimpleContextData> for SimpleJob {
+impl JobImpl<SimpleContextData> for SimpleJobImpl {
     fn name() -> JobImplName {
         JobImplName::new("simple".to_owned())
     }
 
     async fn run(&self, context: JobContext<SimpleContextData>) -> Result<Report> {
-        log::info!("Job run: {}", self.xd);
+        let context = context.data();
+        context.increment();
+        log::info!("Job number {} run", context.read());
         sleep(std::time::Duration::from_secs_f32(11f32)).await;
         Ok(Report::new())
     }
@@ -62,62 +68,41 @@ impl JobImpl<SimpleContextData> for SimpleJob {
 
 #[tokio::main]
 async fn main() {
-    SimpleLogger::new().init().unwrap();
+    SimpleLogger::new()
+        .with_level(log::LevelFilter::Info)
+        .init()
+        .unwrap();
 
     let context_data = SimpleContextData {
-        counter: Arc::new(Mutex::new(0)),
+        counter: Mutex::new(0),
     };
-    let storage = Storage::from(InMemoryStorage::default());
-    let job_scheduler = SimpleJobScheduler::new(storage.clone());
-    let context = JobContext::new(Arc::new(context_data), Arc::new(job_scheduler));
-    let mut job_actions_registry = JobActionsRegistry::default();
-    job_actions_registry.register::<SimpleJob>();
-    let on_fail_runner = SimpleOnFailRunner::new(
-        storage.clone(),
-        context.clone(),
-        job_actions_registry.clone(),
-    );
-    let on_success_runner = SimpleOnSuccessRunner::new(
-        storage.clone(),
-        context.clone(),
-        job_actions_registry.clone(),
-    );
-    let job_runner = SimpleJobRunner::new(
-        storage.clone(),
-        context.clone(),
-        job_actions_registry,
-        Box::new(on_success_runner),
-        Box::new(on_fail_runner),
-    );
-    let job_worker_settings = JobWorkerSettings::default();
-    let manager = JobfireManager::start(
-        context.clone(),
-        storage.clone(),
-        Arc::new(job_runner),
-        job_worker_settings,
-    )
-    .unwrap();
+
+    let manager = JobfireManager::builder(context_data)
+        .with_in_memory_storage()
+        .register_job_impl::<SimpleJobImpl>()
+        .build()
+        .unwrap();
 
     let jobs = vec![
-        PendingJob::new_at(Utc::now(), SimpleJob { xd: Uuid::now_v7() }).unwrap(),
+        PendingJob::new_at(Utc::now(), SimpleJobImpl { xd: Uuid::now_v7() }).unwrap(),
         PendingJob::new_at(
             Utc::now() - Duration::seconds(10),
-            SimpleJob { xd: Uuid::now_v7() },
+            SimpleJobImpl { xd: Uuid::now_v7() },
         )
         .unwrap(),
         PendingJob::new_at(
             Utc::now() + Duration::seconds(5),
-            SimpleJob { xd: Uuid::now_v7() },
+            SimpleJobImpl { xd: Uuid::now_v7() },
         )
         .unwrap(),
         PendingJob::new_at(
             Utc::now() + Duration::seconds(10),
-            SimpleJob { xd: Uuid::now_v7() },
+            SimpleJobImpl { xd: Uuid::now_v7() },
         )
         .unwrap(),
         PendingJob::new_at(
             Utc::now() + Duration::seconds(15),
-            SimpleJob { xd: Uuid::now_v7() },
+            SimpleJobImpl { xd: Uuid::now_v7() },
         )
         .unwrap(),
     ];

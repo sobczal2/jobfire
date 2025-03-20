@@ -4,6 +4,7 @@ pub mod managers;
 pub mod registries;
 pub mod runners;
 pub mod storage;
+pub mod util;
 pub mod workers;
 
 pub use async_trait::async_trait;
