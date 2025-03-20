@@ -12,18 +12,18 @@ use crate::{
 };
 
 #[derive(Clone)]
-pub struct JobSchedulerImpl {
+pub struct SimpleJobScheduler {
     storage: Storage,
 }
 
-impl JobSchedulerImpl {
+impl SimpleJobScheduler {
     pub fn new(storage: Storage) -> Self {
         Self { storage }
     }
 }
 
 #[async_trait]
-impl JobScheduler for JobSchedulerImpl {
+impl JobScheduler for SimpleJobScheduler {
     async fn schedule(&self, pending_job: &PendingJob) -> job::scheduler::Result<()> {
         if self
             .storage

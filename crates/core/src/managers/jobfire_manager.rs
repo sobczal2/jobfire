@@ -1,7 +1,4 @@
-pub mod job_scheduler;
-pub mod jobfire_manager;
-
-use std::sync::Arc;
+use std::{marker::PhantomData, sync::Arc};
 
 use thiserror::Error;
 
@@ -25,13 +22,14 @@ pub enum Error {
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-pub struct JobfireManager {
+pub struct JobfireManager<TData: JobContextData> {
+    phantom_data: PhantomData<TData>,
     storage: Storage,
     job_worker_handle: JobWorkerHandle,
 }
 
-impl JobfireManager {
-    pub fn start<TData: JobContextData>(
+impl<TData: JobContextData> JobfireManager<TData> {
+    pub fn start(
         context: JobContext<TData>,
         storage: Storage,
         job_runner: Arc<dyn JobRunner<TData>>,
@@ -42,6 +40,7 @@ impl JobfireManager {
 
         log::info!("JobfireManager started");
         Ok(Self {
+            phantom_data: Default::default(),
             storage,
             job_worker_handle,
         })

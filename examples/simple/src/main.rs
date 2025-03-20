@@ -12,7 +12,7 @@ use jobfire_core::{
     },
     managers::{
         JobfireManager,
-        job_scheduler::{self, JobSchedulerImpl},
+        job_scheduler::{self, SimpleJobScheduler},
     },
     registries::job_actions::JobActionsRegistry,
     runners::simple::{
@@ -68,8 +68,8 @@ async fn main() {
         counter: Arc::new(Mutex::new(0)),
     };
     let storage = Storage::from(InMemoryStorage::default());
-    let job_scheduler = JobSchedulerImpl::new(storage.clone());
-    let context = JobContext::new(context_data, Arc::new(job_scheduler));
+    let job_scheduler = SimpleJobScheduler::new(storage.clone());
+    let context = JobContext::new(Arc::new(context_data), Arc::new(job_scheduler));
     let mut job_actions_registry = JobActionsRegistry::default();
     job_actions_registry.register::<SimpleJob>();
     let on_fail_runner = SimpleOnFailRunner::new(

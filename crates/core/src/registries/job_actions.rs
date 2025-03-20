@@ -1,3 +1,5 @@
+#![allow(type_alias_bounds)]
+
 use std::{collections::HashMap, pin::Pin, sync::Arc};
 
 use thiserror::Error;
@@ -43,11 +45,20 @@ pub enum Error {
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-#[derive(Clone)]
 pub struct JobActions<TData: JobContextData> {
     run: RunFn<TData>,
     on_success: OnSuccessFn<TData>,
     on_fail: OnFailFn<TData>,
+}
+
+impl<TData: JobContextData> Clone for JobActions<TData> {
+    fn clone(&self) -> Self {
+        Self {
+            run: self.run.clone(),
+            on_success: self.on_success.clone(),
+            on_fail: self.on_fail.clone(),
+        }
+    }
 }
 
 impl<TData: JobContextData> JobActions<TData> {
@@ -143,7 +154,7 @@ impl<TData: JobContextData> JobActionsRegistry<TData> {
     }
 
     pub fn get(&self, job_impl_name: &JobImplName) -> Option<JobActions<TData>> {
-        self.job_actions_map.get(&job_impl_name).cloned()
+        self.job_actions_map.get(job_impl_name).cloned()
     }
 
     pub fn get_run_fn(&self, job_impl_name: &JobImplName) -> Option<RunFn<TData>> {
