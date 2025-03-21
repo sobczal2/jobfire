@@ -23,12 +23,12 @@ impl PendingJobRepo for PendingJobRepoImpl {
             .read()
             .map_err(|_| Error::Internal)?
             .iter()
-            .find(|e| e.id() == job_id)
+            .find(|e| e.job_id() == job_id)
             .cloned())
     }
 
-    async fn add(&self, pending_job: &PendingJob) -> Result<()> {
-        let existing = self.get(pending_job.id()).await?;
+    async fn add(&self, pending_job: PendingJob) -> Result<()> {
+        let existing = self.get(pending_job.job_id()).await?;
         if existing.is_some() {
             return Err(Error::AlreadyExists);
         }
@@ -71,7 +71,7 @@ impl PendingJobRepo for PendingJobRepoImpl {
             .map_err(|_| Error::Internal)?
             .iter()
             .enumerate()
-            .find(|(_, e)| e.id() == job_id)
+            .find(|(_, e)| e.job_id() == job_id)
             .map(|(i, _)| i);
 
         if existing_index.is_none() {

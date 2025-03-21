@@ -24,21 +24,20 @@ impl SimpleJobScheduler {
 
 #[async_trait]
 impl JobScheduler for SimpleJobScheduler {
-    async fn schedule(&self, pending_job: &PendingJob) -> job::scheduler::Result<()> {
-        if self
-            .storage
-            .pending_job_repo()
-            .get(pending_job.id())
-            .await?
-            .is_some()
-        {
-            return Err(scheduler::Error::JobAlreadyScheduled);
+    async fn schedule(&self, job: job::Job, scheduled_at: DateTime<Utc>) -> scheduler::Result<()> {
+        let pending_job = PendingJob::new(*job.id(), scheduled_at);
+        let existing_job = self.storage.job_repo().get(job.id()).await?;
+        if existing_job.is_some() {
+            return Err(scheduler::Error::AlreadyScheduled);
         }
+
+        self.storage.job_repo().add(job).await?;
         self.storage.pending_job_repo().add(pending_job).await?;
         Ok(())
     }
 
-    async fn cancel(&self, job_id: &JobId) -> job::scheduler::Result<()> {
+    async fn cancel(&self, job_id: &JobId) -> scheduler::Result<()> {
+        // TODO add cancel queue
         match self.storage.pending_job_repo().delete(job_id).await {
             Ok(_) => Ok(()),
             Err(error) => match error {
@@ -52,7 +51,7 @@ impl JobScheduler for SimpleJobScheduler {
         &self,
         job_id: &JobId,
         new_scheduled_at: DateTime<Utc>,
-    ) -> job::scheduler::Result<()> {
+    ) -> scheduler::Result<()> {
         let scheduled_job = self.storage.pending_job_repo().get(job_id).await?;
         if scheduled_job.is_none() {
             return Err(scheduler::Error::JobNotFound);
@@ -60,7 +59,7 @@ impl JobScheduler for SimpleJobScheduler {
         let mut scheduled_job = scheduled_job.unwrap();
         scheduled_job.reschedule(new_scheduled_at);
         self.storage.pending_job_repo().delete(job_id).await?;
-        self.storage.pending_job_repo().add(&scheduled_job).await?;
+        self.storage.pending_job_repo().add(scheduled_job).await?;
         Ok(())
     }
 }

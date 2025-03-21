@@ -6,7 +6,6 @@ use crate::{
         self, Job,
         context::{JobContext, JobContextData},
         failed::FailedJob,
-        id::JobId,
         pending::PendingJob,
         running::RunningJob,
     },
@@ -26,6 +25,7 @@ enum Error {
 
 type Result<T> = std::result::Result<T, Error>;
 
+#[allow(dead_code)]
 pub struct OnFailRunnerInput {
     job: Job,
     pending_job: PendingJob,
@@ -92,7 +92,7 @@ impl<TData: JobContextData> OnFailRunner<TData> {
             input.error.clone(),
         );
 
-        self.storage.failed_job_repo().add(&failed_job).await?;
+        self.storage.failed_job_repo().add(failed_job).await?;
 
         let job_actions = self
             .job_actions_registry

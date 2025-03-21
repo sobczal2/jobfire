@@ -2,21 +2,21 @@ use std::sync::{Arc, RwLock};
 
 use jobfire_core::{
     async_trait,
-    domain::job::{failed::FailedJob, id::JobId},
-    storage::{
-        error::{Error, Result},
-        job::FailedJobRepo,
-    },
+    domain::job::Job,
+    storage::{error::Error, job::JobRepo},
 };
 
 #[derive(Default)]
-pub(crate) struct FailedJobRepoImpl {
-    elements: Arc<RwLock<Vec<FailedJob>>>,
+pub(crate) struct JobRepoImpl {
+    elements: Arc<RwLock<Vec<Job>>>,
 }
 
 #[async_trait]
-impl FailedJobRepo for FailedJobRepoImpl {
-    async fn get(&self, job_id: &JobId) -> Result<Option<FailedJob>> {
+impl JobRepo for JobRepoImpl {
+    async fn get(
+        &self,
+        job_id: &jobfire_core::domain::job::id::JobId,
+    ) -> jobfire_core::storage::error::Result<Option<Job>> {
         Ok(self
             .elements
             .read()
@@ -26,8 +26,8 @@ impl FailedJobRepo for FailedJobRepoImpl {
             .cloned())
     }
 
-    async fn add(&self, failed_job: &FailedJob) -> Result<()> {
-        let existing = self.get(failed_job.id()).await?;
+    async fn add(&self, job: Job) -> jobfire_core::storage::error::Result<()> {
+        let existing = self.get(job.id()).await?;
         if existing.is_some() {
             return Err(Error::AlreadyExists);
         }
@@ -35,7 +35,7 @@ impl FailedJobRepo for FailedJobRepoImpl {
         self.elements
             .write()
             .map_err(|_| Error::Internal)?
-            .push(failed_job.clone());
+            .push(job.clone());
 
         Ok(())
     }

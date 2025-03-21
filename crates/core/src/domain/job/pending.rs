@@ -1,4 +1,4 @@
-use super::{context::JobContextData, id::JobId};
+use super::id::JobId;
 use chrono::{DateTime, Utc};
 use getset::Getters;
 use serde::{Deserialize, Serialize};
@@ -11,7 +11,7 @@ pub struct PendingJob {
 }
 
 impl PendingJob {
-    pub(crate) fn new<TData: JobContextData>(job_id: JobId, scheduled_at: DateTime<Utc>) -> Self {
+    pub(crate) fn new(job_id: JobId, scheduled_at: DateTime<Utc>) -> Self {
         Self {
             job_id,
             scheduled_at,

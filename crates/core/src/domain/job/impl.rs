@@ -1,19 +1,19 @@
-use std::sync::Arc;
-
-use async_trait::async_trait;
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
-use serde_json::Value;
-use thiserror::Error;
-
 use super::{
     context::{JobContext, JobContextData},
     report::Report,
 };
+use async_trait::async_trait;
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use serde_json::Value;
+use std::sync::Arc;
+use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("deserialization failed")]
     DeserializationFailed,
+    #[error("serialization failed")]
+    SerializationFailed,
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -43,6 +43,22 @@ pub struct SerializedJobImpl {
 }
 
 impl SerializedJobImpl {
+    pub fn new(name: JobImplName, value: Value) -> Self {
+        Self {
+            inner: Arc::new(SerializedJobImplInner { name, value }),
+        }
+    }
+
+    pub fn from_job_impl<TData: JobContextData, TJobImpl: JobImpl<TData>>(
+        value: TJobImpl,
+    ) -> Result<Self> {
+        let name = TJobImpl::name();
+        Ok(SerializedJobImpl::new(
+            name,
+            serde_json::to_value(value).map_err(|_| Error::SerializationFailed)?,
+        ))
+    }
+
     pub fn deserialize<TData: JobContextData, TJobImpl: JobImpl<TData>>(&self) -> Result<TJobImpl> {
         serde_json::from_value(self.inner.value.clone()).map_err(|_| Error::DeserializationFailed)
     }

@@ -4,7 +4,7 @@ use thiserror::Error;
 
 use crate::storage;
 
-use super::{id::JobId, pending::PendingJob};
+use super::{Job, id::JobId};
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -12,15 +12,15 @@ pub enum Error {
     Storage(#[from] storage::error::Error),
     #[error("job not found")]
     JobNotFound,
-    #[error("job already scheduled")]
-    JobAlreadyScheduled,
+    #[error("already scheduled")]
+    AlreadyScheduled,
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[async_trait]
 pub trait JobScheduler: Send + Sync {
-    async fn schedule(&self, pending_job: &PendingJob) -> Result<()>;
+    async fn schedule(&self, job: Job, scheduled_at: DateTime<Utc>) -> Result<()>;
     async fn cancel(&self, job_id: &JobId) -> Result<()>;
     async fn reschedule(&self, job_id: &JobId, new_scheduled_at: DateTime<Utc>) -> Result<()>;
 }

@@ -23,12 +23,12 @@ impl RunningJobRepo for RunningJobRepoImpl {
             .read()
             .map_err(|_| Error::Internal)?
             .iter()
-            .find(|e| e.id() == job_id)
+            .find(|e| e.job_id() == job_id)
             .cloned())
     }
 
-    async fn add(&self, running_job: &RunningJob) -> Result<()> {
-        let existing = self.get(running_job.id()).await?;
+    async fn add(&self, running_job: RunningJob) -> Result<()> {
+        let existing = self.get(running_job.job_id()).await?;
         if existing.is_some() {
             return Err(storage::error::Error::AlreadyExists);
         }
@@ -48,7 +48,7 @@ impl RunningJobRepo for RunningJobRepoImpl {
             .map_err(|_| Error::Internal)?
             .iter()
             .enumerate()
-            .find(|(_, e)| e.id() == job_id)
+            .find(|(_, e)| e.job_id() == job_id)
             .map(|(i, _)| i);
 
         if existing_index.is_none() {

@@ -26,6 +26,7 @@ enum Error {
 
 type Result<T> = std::result::Result<T, Error>;
 
+#[allow(dead_code)]
 pub struct OnSuccessRunnerInput {
     job: Job,
     pending_job: PendingJob,
@@ -89,7 +90,7 @@ impl<TData: JobContextData> OnSuccessRunner<TData> {
 
         self.storage
             .successful_job_repo()
-            .add(&successful_job)
+            .add(successful_job)
             .await?;
 
         let job_actions = self

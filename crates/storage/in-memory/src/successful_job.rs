@@ -22,12 +22,12 @@ impl SuccessfulJobRepo for SuccessfulJobRepoImpl {
             .read()
             .map_err(|_| Error::Internal)?
             .iter()
-            .find(|e| e.id() == job_id)
+            .find(|e| e.job_id() == job_id)
             .cloned())
     }
 
-    async fn add(&self, successful_job: &SuccessfulJob) -> Result<()> {
-        let existing = self.get(successful_job.id()).await?;
+    async fn add(&self, successful_job: SuccessfulJob) -> Result<()> {
+        let existing = self.get(successful_job.job_id()).await?;
         if existing.is_some() {
             return Err(Error::AlreadyExists);
         }

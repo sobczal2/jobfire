@@ -121,7 +121,7 @@ impl<TData: JobContextData> JobRunner<TData> {
 
     async fn save_running_job(&self, job: &Job) -> Result<()> {
         let running_job = RunningJob::new(*job.id(), Utc::now());
-        self.storage.running_job_repo().add(&running_job).await?;
+        self.storage.running_job_repo().add(running_job).await?;
         Ok(())
     }
 

@@ -1,23 +1,23 @@
-use std::sync::Arc;
-
-use async_trait::async_trait;
-use chrono::Duration;
-use thiserror::Error;
-use tokio::time::interval;
-
 use crate::{
     builders::{
         Builder, job_scheduler::JobSchedulerBuilder, jobfire_manager::JobfireManagerBuilder,
     },
     domain::job::{
+        Job,
         context::{JobContext, JobContextData},
-        scheduler::JobScheduler,
+        id::JobId,
+        r#impl::JobImpl,
+        scheduler::{self, JobScheduler},
     },
     runners::job::JobRunner,
     storage::{self, Storage},
     util::r#async::poll_predicate,
     workers::job::{JobWorker, JobWorkerHandle, JobWorkerSettings, State},
 };
+use chrono::{DateTime, Duration, Utc};
+use std::sync::Arc;
+use thiserror::Error;
+use tokio::time::interval;
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -25,6 +25,10 @@ pub enum Error {
     StopFailed,
     #[error("storage error: {0}")]
     Storage(#[from] storage::error::Error),
+    #[error("scheduler error: {0}")]
+    Scheduler(#[from] scheduler::Error),
+    #[error("failed to build a job")]
+    JobBuildFailed,
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -93,29 +97,31 @@ impl<TData: JobContextData> JobfireManager<TData> {
     }
 }
 
-#[async_trait]
-impl<TData: JobContextData> JobScheduler for JobfireManager<TData> {
-    async fn schedule(
+impl<TData: JobContextData> JobfireManager<TData> {
+    pub async fn schedule(
         &self,
-        pending_job: &crate::domain::job::pending::PendingJob,
-    ) -> crate::domain::job::scheduler::Result<()> {
-        self.job_scheduler.schedule(pending_job).await
+        job_impl: impl JobImpl<TData>,
+        at: DateTime<Utc>,
+    ) -> Result<JobId> {
+        let job = Job::from_impl(job_impl).map_err(|_| Error::JobBuildFailed)?;
+        let job_id = *job.id();
+        self.job_scheduler.schedule(job, at).await?;
+        Ok(job_id)
     }
 
-    async fn cancel(
-        &self,
-        job_id: &crate::domain::job::id::JobId,
-    ) -> crate::domain::job::scheduler::Result<()> {
-        self.job_scheduler.cancel(job_id).await
+    pub async fn cancel(&self, job_id: &JobId) -> Result<()> {
+        self.job_scheduler.cancel(job_id).await?;
+        Ok(())
     }
 
-    async fn reschedule(
+    pub async fn reschedule(
         &self,
-        job_id: &crate::domain::job::id::JobId,
-        new_scheduled_at: chrono::DateTime<chrono::Utc>,
-    ) -> crate::domain::job::scheduler::Result<()> {
+        job_id: &JobId,
+        new_scheduled_at: DateTime<chrono::Utc>,
+    ) -> Result<()> {
         self.job_scheduler
             .reschedule(job_id, new_scheduled_at)
-            .await
+            .await?;
+        Ok(())
     }
 }
