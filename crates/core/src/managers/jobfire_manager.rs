@@ -7,8 +7,7 @@ use tokio::time::interval;
 
 use crate::{
     builders::{
-        Builder, job_actions_registry::JobActionsRegistryBuilder,
-        job_scheduler::JobSchedulerBuilder, jobfire_manager::JobfireManagerBuilder,
+        Builder, job_scheduler::JobSchedulerBuilder, jobfire_manager::JobfireManagerBuilder,
     },
     domain::job::{
         context::{JobContext, JobContextData},
@@ -30,6 +29,7 @@ pub enum Error {
 
 pub type Result<T> = std::result::Result<T, Error>;
 
+#[allow(dead_code)]
 pub struct JobfireManager<TData: JobContextData> {
     context: JobContext<TData>,
     storage: Storage,

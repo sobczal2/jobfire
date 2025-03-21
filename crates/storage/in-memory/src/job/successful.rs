@@ -9,16 +9,9 @@ use jobfire_core::{
     },
 };
 
+#[derive(Default)]
 pub(crate) struct SuccessfulJobRepoImpl {
     elements: Arc<RwLock<Vec<SuccessfulJob>>>,
-}
-
-impl Default for SuccessfulJobRepoImpl {
-    fn default() -> Self {
-        Self {
-            elements: Default::default(),
-        }
-    }
 }
 
 #[async_trait]

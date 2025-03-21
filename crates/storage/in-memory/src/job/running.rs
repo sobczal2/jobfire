@@ -2,7 +2,7 @@ use std::sync::{Arc, RwLock};
 
 use jobfire_core::{
     async_trait,
-    domain::job::{id::JobId, pending::PendingJob, running::RunningJob},
+    domain::job::{id::JobId, running::RunningJob},
     storage::{
         self,
         error::{Error, Result},
@@ -10,16 +10,9 @@ use jobfire_core::{
     },
 };
 
+#[derive(Default)]
 pub(crate) struct RunningJobRepoImpl {
     elements: Arc<RwLock<Vec<RunningJob>>>,
-}
-
-impl Default for RunningJobRepoImpl {
-    fn default() -> Self {
-        Self {
-            elements: Default::default(),
-        }
-    }
 }
 
 #[async_trait]

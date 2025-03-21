@@ -1,10 +1,14 @@
+use chrono::Utc;
 use thiserror::Error;
 
 use crate::{
     domain::job::{
-        self,
+        self, Job,
         context::{JobContext, JobContextData},
+        failed::FailedJob,
+        id::JobId,
         pending::PendingJob,
+        running::RunningJob,
     },
     registries::job_actions::JobActionsRegistry,
     storage::{self, Storage},
@@ -23,12 +27,25 @@ enum Error {
 type Result<T> = std::result::Result<T, Error>;
 
 pub struct OnFailRunnerInput {
+    job: Job,
     pending_job: PendingJob,
+    running_job: RunningJob,
+    error: job::error::Error,
 }
 
 impl OnFailRunnerInput {
-    pub fn new(pending_job: PendingJob) -> Self {
-        Self { pending_job }
+    pub fn new(
+        job: Job,
+        pending_job: PendingJob,
+        running_job: RunningJob,
+        error: job::error::Error,
+    ) -> Self {
+        Self {
+            job,
+            pending_job,
+            running_job,
+            error,
+        }
     }
 }
 
@@ -38,7 +55,17 @@ pub struct OnFailRunner<TData: JobContextData> {
     job_actions_registry: JobActionsRegistry<TData>,
 }
 
-impl<'a, TData: JobContextData> OnFailRunner<TData> {
+impl<TData: JobContextData> Clone for OnFailRunner<TData> {
+    fn clone(&self) -> Self {
+        Self {
+            storage: self.storage.clone(),
+            context: self.context.clone(),
+            job_actions_registry: self.job_actions_registry.clone(),
+        }
+    }
+}
+
+impl<TData: JobContextData> OnFailRunner<TData> {
     pub fn new(
         storage: Storage,
         context: JobContext<TData>,
@@ -58,16 +85,23 @@ impl<'a, TData: JobContextData> OnFailRunner<TData> {
     }
 
     async fn run_internal(&self, input: &OnFailRunnerInput) -> Result<()> {
+        let failed_job = FailedJob::new(
+            *input.job.id(),
+            *input.pending_job.scheduled_at(),
+            Utc::now(),
+            input.error.clone(),
+        );
+
+        self.storage.failed_job_repo().add(&failed_job).await?;
+
         let job_actions = self
             .job_actions_registry
-            .get(input.pending_job.impl_name())
+            .get(input.job.r#impl().name())
             .ok_or(Error::JobActionsNotFound)?;
 
         job_actions
-            .on_fail(&input.pending_job, self.context.clone())
+            .on_fail(input.job.r#impl().clone(), self.context.clone())
             .await?;
-
-        // TODO: save failed job
 
         Ok(())
     }

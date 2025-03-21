@@ -1,11 +1,9 @@
-use std::sync::Arc;
-
-use async_trait::async_trait;
 use chrono::Utc;
 use thiserror::Error;
 
 use crate::{
     domain::job::{
+        Job,
         context::{JobContext, JobContextData},
         id::JobId,
         pending::PendingJob,
@@ -24,40 +22,32 @@ use super::{
 enum Error {
     #[error("storage error: {0}")]
     Storage(#[from] storage::error::Error),
+    #[error("corresponding job not found")]
+    CorrespondingJobNotFound,
     #[error("job actions not found")]
     JobActionsNotFound,
 }
 
 type Result<T> = std::result::Result<T, Error>;
 
-pub struct JobRunnerInput {
-    pending_job: PendingJob,
-}
-
-impl JobRunnerInput {
-    pub fn new(pending_job: PendingJob) -> Self {
-        Self { pending_job }
-    }
-}
-
 pub struct JobRunner<TData: JobContextData> {
-    inner: Arc<JobRunnerInner<TData>>,
-}
-
-impl<TData: JobContextData> Clone for JobRunner<TData> {
-    fn clone(&self) -> Self {
-        Self {
-            inner: self.inner.clone(),
-        }
-    }
-}
-
-pub struct JobRunnerInner<TData: JobContextData> {
     storage: Storage,
     context: JobContext<TData>,
     job_actions_registry: JobActionsRegistry<TData>,
     on_success_runner: OnSuccessRunner<TData>,
     on_fail_runner: OnFailRunner<TData>,
+}
+
+impl<TData: JobContextData> Clone for JobRunner<TData> {
+    fn clone(&self) -> Self {
+        Self {
+            storage: self.storage.clone(),
+            context: self.context.clone(),
+            job_actions_registry: self.job_actions_registry.clone(),
+            on_success_runner: self.on_success_runner.clone(),
+            on_fail_runner: self.on_fail_runner.clone(),
+        }
+    }
 }
 
 impl<TData: JobContextData> JobRunner<TData> {
@@ -67,71 +57,79 @@ impl<TData: JobContextData> JobRunner<TData> {
         job_actions_registry: JobActionsRegistry<TData>,
     ) -> Self {
         Self {
-            inner: Arc::new(JobRunnerInner {
-                storage: storage.clone(),
-                context: context.clone(),
-                job_actions_registry: job_actions_registry.clone(),
-                on_success_runner: OnSuccessRunner::new(
-                    storage.clone(),
-                    context.clone(),
-                    job_actions_registry.clone(),
-                ),
-                on_fail_runner: OnFailRunner::new(
-                    storage.clone(),
-                    context.clone(),
-                    job_actions_registry.clone(),
-                ),
-            }),
+            storage: storage.clone(),
+            context: context.clone(),
+            job_actions_registry: job_actions_registry.clone(),
+            on_success_runner: OnSuccessRunner::new(
+                storage.clone(),
+                context.clone(),
+                job_actions_registry.clone(),
+            ),
+            on_fail_runner: OnFailRunner::new(
+                storage.clone(),
+                context.clone(),
+                job_actions_registry.clone(),
+            ),
         }
     }
 
-    pub async fn run(&self, input: &JobRunnerInput) {
-        if let Err(error) = self.run_internal(input).await {
+    pub async fn run(&self, pending_job: PendingJob) {
+        if let Err(error) = self.run_internal(pending_job).await {
             log::error!("error during job run: {error}");
         }
     }
 
-    async fn run_internal(&self, input: &JobRunnerInput) -> Result<()> {
-        let pending_job = &input.pending_job;
-        self.save_running_job(pending_job).await?;
+    async fn run_internal(&self, pending_job: PendingJob) -> Result<()> {
+        let job = self.get_job(pending_job.job_id()).await?;
+        self.save_running_job(&job).await?;
 
         let job_actions = self
-            .inner
             .job_actions_registry
-            .get(pending_job.impl_name())
+            .get(job.r#impl().name())
             .ok_or(Error::JobActionsNotFound)?;
 
         let run_result = job_actions
-            .run(pending_job, self.inner.context.clone())
+            .run(job.r#impl().clone(), self.context.clone())
             .await;
 
-        let running_job = self.remove_running_job(pending_job.id()).await?;
+        let running_job = self.storage.running_job_repo().pop(job.id()).await?;
 
         match run_result {
             Ok(report) => {
-                let input = OnSuccessRunnerInput::new(pending_job.clone());
-                self.inner.on_success_runner.run(&input).await;
+                self.on_success_runner
+                    .run(&OnSuccessRunnerInput::new(
+                        job.clone(),
+                        pending_job.clone(),
+                        running_job,
+                        report,
+                    ))
+                    .await;
             }
             Err(error) => {
-                let input = OnFailRunnerInput::new(pending_job.clone());
-                self.inner.on_fail_runner.run(&input).await;
+                self.on_fail_runner
+                    .run(&OnFailRunnerInput::new(
+                        job.clone(),
+                        pending_job.clone(),
+                        running_job,
+                        error,
+                    ))
+                    .await;
             }
         }
         Ok(())
     }
 
-    async fn save_running_job(&self, pending_job: &PendingJob) -> Result<()> {
-        let running_job = RunningJob::new(*pending_job.id(), *pending_job.created_at(), Utc::now());
-        self.inner
-            .storage
-            .running_job_repo()
-            .add(&running_job)
-            .await?;
+    async fn save_running_job(&self, job: &Job) -> Result<()> {
+        let running_job = RunningJob::new(*job.id(), Utc::now());
+        self.storage.running_job_repo().add(&running_job).await?;
         Ok(())
     }
 
-    async fn remove_running_job(&self, job_id: &JobId) -> Result<RunningJob> {
-        let running_job = self.inner.storage.running_job_repo().pop(job_id).await?;
-        Ok(running_job)
+    async fn get_job(&self, job_id: &JobId) -> Result<Job> {
+        let job = self.storage.job_repo().get(job_id).await?;
+        match job {
+            Some(job) => Ok(job),
+            None => Err(Error::CorrespondingJobNotFound),
+        }
     }
 }

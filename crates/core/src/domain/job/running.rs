@@ -7,17 +7,12 @@ use super::id::JobId;
 #[derive(Clone, Getters, Serialize, Deserialize)]
 #[getset(get = "pub")]
 pub struct RunningJob {
-    id: JobId,
-    created_at: DateTime<Utc>,
+    job_id: JobId,
     started_at: DateTime<Utc>,
 }
 
 impl RunningJob {
-    pub fn new(id: JobId, created_at: DateTime<Utc>, started_at: DateTime<Utc>) -> Self {
-        Self {
-            id,
-            created_at,
-            started_at,
-        }
+    pub fn new(job_id: JobId, started_at: DateTime<Utc>) -> Self {
+        Self { job_id, started_at }
     }
 }

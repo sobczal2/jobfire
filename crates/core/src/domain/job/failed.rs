@@ -7,22 +7,22 @@ use super::{error::Error, id::JobId};
 #[derive(Clone, Getters, Serialize, Deserialize)]
 #[getset(get = "pub")]
 pub struct FailedJob {
-    id: JobId,
-    created_at: DateTime<Utc>,
+    job_id: JobId,
+    scheduled_at: DateTime<Utc>,
     finished_at: DateTime<Utc>,
     error: Error,
 }
 
 impl FailedJob {
     pub fn new(
-        id: JobId,
-        created_at: DateTime<Utc>,
+        job_id: JobId,
+        scheduled_at: DateTime<Utc>,
         finished_at: DateTime<Utc>,
         error: Error,
     ) -> Self {
         Self {
-            id,
-            created_at,
+            job_id,
+            scheduled_at,
             finished_at,
             error,
         }

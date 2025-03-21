@@ -4,20 +4,16 @@ use std::{collections::HashMap, pin::Pin, sync::Arc};
 
 use thiserror::Error;
 
-use crate::{
-    domain::job::{
-        self,
-        context::{JobContext, JobContextData},
-        r#impl::{JobImpl, JobImplName},
-        pending::PendingJob,
-        report::Report,
-    },
-    runners::on_fail,
+use crate::domain::job::{
+    self,
+    context::{JobContext, JobContextData},
+    r#impl::{JobImplName, SerializedJobImpl},
+    report::Report,
 };
 
 pub type RunFn<TData: JobContextData> = Arc<
     dyn Fn(
-            PendingJob,
+            SerializedJobImpl,
             JobContext<TData>,
         ) -> Pin<Box<dyn Future<Output = job::error::Result<Report>> + Send>>
         + Send
@@ -25,7 +21,7 @@ pub type RunFn<TData: JobContextData> = Arc<
 >;
 pub type OnSuccessFn<TData: JobContextData> = Arc<
     dyn Fn(
-            PendingJob,
+            SerializedJobImpl,
             JobContext<TData>,
         ) -> Pin<Box<dyn Future<Output = job::error::Result<()>> + Send>>
         + Send
@@ -33,7 +29,7 @@ pub type OnSuccessFn<TData: JobContextData> = Arc<
 >;
 pub type OnFailFn<TData: JobContextData> = Arc<
     dyn Fn(
-            PendingJob,
+            SerializedJobImpl,
             JobContext<TData>,
         ) -> Pin<Box<dyn Future<Output = job::error::Result<()>> + Send>>
         + Send
@@ -81,26 +77,26 @@ impl<TData: JobContextData> Clone for JobActions<TData> {
 impl<TData: JobContextData> JobActions<TData> {
     pub async fn run(
         &self,
-        pending_job: &PendingJob,
+        serialized_job_impl: SerializedJobImpl,
         job_context: JobContext<TData>,
     ) -> job::error::Result<Report> {
-        (self.run.clone())(pending_job.clone(), job_context).await
+        (self.run.clone())(serialized_job_impl, job_context).await
     }
 
     pub async fn on_success(
         &self,
-        pending_job: &PendingJob,
+        serialized_job_impl: SerializedJobImpl,
         job_context: JobContext<TData>,
     ) -> job::error::Result<()> {
-        (self.on_success.clone())(pending_job.clone(), job_context).await
+        (self.on_success.clone())(serialized_job_impl, job_context).await
     }
 
     pub async fn on_fail(
         &self,
-        pending_job: &PendingJob,
+        serialized_job_impl: SerializedJobImpl,
         job_context: JobContext<TData>,
     ) -> job::error::Result<()> {
-        (self.on_fail.clone())(pending_job.clone(), job_context).await
+        (self.on_fail.clone())(serialized_job_impl, job_context).await
     }
 }
 

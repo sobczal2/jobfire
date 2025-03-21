@@ -2,7 +2,7 @@ pub mod error;
 pub mod job;
 
 use getset::Getters;
-use job::{FailedJobRepo, PendingJobRepo, RunningJobRepo, SuccessfulJobRepo};
+use job::{FailedJobRepo, JobRepo, PendingJobRepo, RunningJobRepo, SuccessfulJobRepo};
 use std::sync::Arc;
 
 #[derive(Clone, Getters)]
@@ -12,6 +12,7 @@ pub struct Storage {
 }
 
 struct StorageInner {
+    job_repo: Box<dyn JobRepo>,
     pending_job_repo: Box<dyn PendingJobRepo>,
     running_job_repo: Box<dyn RunningJobRepo>,
     successful_job_repo: Box<dyn SuccessfulJobRepo>,
@@ -20,6 +21,7 @@ struct StorageInner {
 
 impl Storage {
     pub fn new(
+        job_repo: Box<dyn JobRepo>,
         pending_job_repo: Box<dyn PendingJobRepo>,
         running_job_repo: Box<dyn RunningJobRepo>,
         successful_job_repo: Box<dyn SuccessfulJobRepo>,
@@ -27,12 +29,17 @@ impl Storage {
     ) -> Self {
         Self {
             inner: Arc::new(StorageInner {
+                job_repo,
                 pending_job_repo,
                 running_job_repo,
                 successful_job_repo,
                 failed_job_repo,
             }),
         }
+    }
+
+    pub fn job_repo(&self) -> &dyn JobRepo {
+        self.inner.job_repo.as_ref()
     }
 
     pub fn pending_job_repo(&self) -> &dyn PendingJobRepo {

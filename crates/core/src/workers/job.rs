@@ -8,7 +8,7 @@ use tokio::{
 
 use crate::{
     domain::job::{context::JobContextData, pending::PendingJob},
-    runners::job::{JobRunner, JobRunnerInput},
+    runners::job::JobRunner,
     storage::{self, Storage},
 };
 
@@ -184,11 +184,10 @@ impl<TData: JobContextData> JobWorker<TData> {
     }
 
     async fn handle_pending_job(&self, pending_job: PendingJob) {
-        log::trace!("handling pending_job with id: {:?}", pending_job.id());
+        log::trace!("handling pending_job with id: {:?}", pending_job.job_id());
         let job_runner = self.job_runner.clone();
         tokio::spawn(async move {
-            let input = JobRunnerInput::new(pending_job);
-            job_runner.run(&input).await;
+            job_runner.run(pending_job).await;
         });
     }
 

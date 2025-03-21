@@ -6,7 +6,7 @@ resolver = "2"
 jobfire-core = { path = "./crates/core/" }
 jobfire-storage-in-memory = { path = "./crates/storage/in-memory/" }
 log = { version = "0.4.26" }
-serde = { version = "1.0.219", features = ["derive"] }
+serde = { version = "1.0.219", features = ["derive", "rc"] }
 serde_json = { version = "1.0.140" }
 uuid = { version = "1.15.1", features = ["v7", "serde"] }
 cron = { version = "0.15.0", features = ["serde"] }

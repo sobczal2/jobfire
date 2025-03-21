@@ -15,10 +15,7 @@ use jobfire_core::{
 use jobfire_storage_in_memory::WithInMemoryStorage;
 use serde::{Deserialize, Serialize};
 use simple_logger::SimpleLogger;
-use std::{
-    ops::{AddAssign, Deref},
-    sync::{Arc, Mutex},
-};
+use std::{ops::AddAssign, sync::Mutex};
 use tokio::{signal::ctrl_c, time::sleep};
 
 struct SimpleContextData {
@@ -31,7 +28,7 @@ impl SimpleContextData {
     }
 
     fn read(&self) -> usize {
-        self.counter.lock().unwrap().clone()
+        *self.counter.lock().unwrap()
     }
 }
 
@@ -83,25 +80,31 @@ async fn main() {
         .build()
         .unwrap();
 
+    let now = Utc::now();
+
     let jobs = vec![
-        PendingJob::new_at(Utc::now(), SimpleJobImpl { xd: Uuid::now_v7() }).unwrap(),
+        PendingJob::new_at(now, SimpleJobImpl { xd: Uuid::now_v7() }).unwrap(),
         PendingJob::new_at(
-            Utc::now() - Duration::seconds(10),
+            now - Duration::seconds(10)
+                - Duration::microseconds(now.timestamp_subsec_micros() as i64),
             SimpleJobImpl { xd: Uuid::now_v7() },
         )
         .unwrap(),
         PendingJob::new_at(
-            Utc::now() + Duration::seconds(5),
+            now + Duration::seconds(5)
+                - Duration::microseconds(now.timestamp_subsec_micros() as i64),
             SimpleJobImpl { xd: Uuid::now_v7() },
         )
         .unwrap(),
         PendingJob::new_at(
-            Utc::now() + Duration::seconds(10),
+            now + Duration::seconds(10)
+                - Duration::microseconds(now.timestamp_subsec_micros() as i64),
             SimpleJobImpl { xd: Uuid::now_v7() },
         )
         .unwrap(),
         PendingJob::new_at(
-            Utc::now() + Duration::seconds(15),
+            now + Duration::seconds(15)
+                - Duration::microseconds(now.timestamp_subsec_micros() as i64),
             SimpleJobImpl { xd: Uuid::now_v7() },
         )
         .unwrap(),

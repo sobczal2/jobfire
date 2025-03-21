@@ -1,11 +1,16 @@
 use async_trait::async_trait;
 
 use crate::domain::job::{
-    failed::FailedJob, id::JobId, pending::PendingJob, running::RunningJob,
+    Job, failed::FailedJob, id::JobId, pending::PendingJob, running::RunningJob,
     successful::SuccessfulJob,
 };
 
 use super::error::Result;
+
+#[async_trait]
+pub trait JobRepo: Send + Sync {
+    async fn get(&self, job_id: &JobId) -> Result<Option<Job>>;
+}
 
 #[async_trait]
 pub trait PendingJobRepo: Send + Sync {

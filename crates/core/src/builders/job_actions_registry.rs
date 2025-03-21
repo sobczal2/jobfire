@@ -7,8 +7,7 @@ use crate::{
     domain::job::{
         self,
         context::{JobContext, JobContextData},
-        r#impl::{JobImpl, JobImplName},
-        pending::PendingJob,
+        r#impl::{JobImpl, JobImplName, SerializedJobImpl},
     },
     registries::job_actions::{JobActions, JobActionsRegistry, OnFailFn, OnSuccessFn, RunFn},
 };
@@ -58,10 +57,11 @@ impl<TData: JobContextData> Builder<JobActionsRegistry<TData>>
 
 impl<TData: JobContextData> JobActionsRegistryBuilder<TData> {
     pub fn register<TJobImpl: JobImpl<TData>>(&mut self) {
-        let run: RunFn<TData> =
-            Arc::new(|pending_job: PendingJob, job_context: JobContext<TData>| {
+        let run: RunFn<TData> = Arc::new(
+            |serialized_job_impl: SerializedJobImpl, job_context: JobContext<TData>| {
                 Box::pin(async move {
-                    let job_impl = serde_json::from_value::<TJobImpl>(pending_job.r#impl().clone())
+                    let job_impl = serialized_job_impl
+                        .deserialize::<TData, TJobImpl>()
                         .map_err(|_| job::error::Error::JobImplBuildFailed);
                     match job_impl {
                         Ok(job_impl) => job_impl.run(job_context).await,
@@ -71,12 +71,14 @@ impl<TData: JobContextData> JobActionsRegistryBuilder<TData> {
                         }
                     }
                 })
-            });
+            },
+        );
 
-        let on_success: OnSuccessFn<TData> =
-            Arc::new(|pending_job: PendingJob, job_context: JobContext<TData>| {
+        let on_success: OnSuccessFn<TData> = Arc::new(
+            |serialized_job_impl: SerializedJobImpl, job_context: JobContext<TData>| {
                 Box::pin(async move {
-                    let job_impl = serde_json::from_value::<TJobImpl>(pending_job.r#impl().clone())
+                    let job_impl = serialized_job_impl
+                        .deserialize::<TData, TJobImpl>()
                         .map_err(|_| job::error::Error::JobImplBuildFailed);
                     match job_impl {
                         Ok(job_impl) => job_impl.on_success(job_context).await,
@@ -86,12 +88,14 @@ impl<TData: JobContextData> JobActionsRegistryBuilder<TData> {
                         }
                     }
                 })
-            });
+            },
+        );
 
-        let on_fail: OnFailFn<TData> =
-            Arc::new(|pending_job: PendingJob, job_context: JobContext<TData>| {
+        let on_fail: OnFailFn<TData> = Arc::new(
+            |serialized_job_impl: SerializedJobImpl, job_context: JobContext<TData>| {
                 Box::pin(async move {
-                    let job_impl = serde_json::from_value::<TJobImpl>(pending_job.r#impl().clone())
+                    let job_impl = serialized_job_impl
+                        .deserialize::<TData, TJobImpl>()
                         .map_err(|_| job::error::Error::JobImplBuildFailed);
                     match job_impl {
                         Ok(job_impl) => job_impl.on_fail(job_context).await,
@@ -101,7 +105,8 @@ impl<TData: JobContextData> JobActionsRegistryBuilder<TData> {
                         }
                     }
                 })
-            });
+            },
+        );
 
         self.inner
             .lock()
