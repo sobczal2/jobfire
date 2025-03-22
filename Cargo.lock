@@ -226,6 +226,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "jobfire-ephemeral"
+version = "0.1.0"
+
+[[package]]
 name = "jobfire-example-simple"
 version = "0.1.0"
 dependencies = [
@@ -237,6 +241,10 @@ dependencies = [
  "simple_logger",
  "tokio",
 ]
+
+[[package]]
+name = "jobfire-recurring"
+version = "0.1.0"
 
 [[package]]
 name = "jobfire-storage-in-memory"

@@ -1,8 +1,8 @@
 use thiserror::Error;
 
 pub mod job_actions_registry;
+pub mod job_manager;
 pub mod job_scheduler;
-pub mod jobfire_manager;
 
 #[derive(Clone, Error, Debug)]
 pub enum Error {

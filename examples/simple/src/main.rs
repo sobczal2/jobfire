@@ -8,7 +8,7 @@ use jobfire_core::{
         r#impl::{JobImpl, JobImplName},
         report::Report,
     },
-    managers::jobfire_manager::JobfireManager,
+    managers::job_manager::JobManager,
 };
 use jobfire_storage_in_memory::WithInMemoryStorage;
 use serde::{Deserialize, Serialize};
@@ -72,7 +72,7 @@ async fn main() {
         counter: Mutex::new(0),
     };
 
-    let manager = JobfireManager::builder(context_data)
+    let manager = JobManager::basic_builder(context_data)
         .with_in_memory_storage()
         .register_job_impl::<SimpleJobImpl>()
         .build()

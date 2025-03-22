@@ -1,7 +1,5 @@
 use crate::{
-    builders::{
-        Builder, job_scheduler::JobSchedulerBuilder, jobfire_manager::JobfireManagerBuilder,
-    },
+    builders::{Builder, job_manager::JobManagerBuilder, job_scheduler::JobSchedulerBuilder},
     domain::job::{
         Job,
         context::{JobContext, JobContextData},
@@ -34,7 +32,7 @@ pub enum Error {
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[allow(dead_code)]
-pub struct JobfireManager<TData: JobContextData> {
+pub struct JobManager<TData: JobContextData> {
     context: JobContext<TData>,
     storage: Storage,
     job_runner: JobRunner<TData>,
@@ -43,7 +41,7 @@ pub struct JobfireManager<TData: JobContextData> {
     job_scheduler: Arc<dyn JobScheduler>,
 }
 
-impl<TData: JobContextData> JobfireManager<TData> {
+impl<TData: JobContextData> JobManager<TData> {
     pub fn start(
         context: JobContext<TData>,
         storage: Storage,
@@ -84,8 +82,8 @@ impl<TData: JobContextData> JobfireManager<TData> {
         Ok(())
     }
 
-    pub fn builder(context_data: TData) -> JobfireManagerBuilder<TData> {
-        let builder = JobfireManagerBuilder::default();
+    pub fn basic_builder(context_data: TData) -> JobManagerBuilder<TData> {
+        let builder = JobManagerBuilder::default();
         builder.with_job_worker_settings(JobWorkerSettings::default());
         builder.with_context_data(context_data);
         builder.with_job_scheduler_factory(Box::new(|storage| {
@@ -95,9 +93,13 @@ impl<TData: JobContextData> JobfireManager<TData> {
         }));
         builder
     }
+
+    pub fn builder() -> JobManagerBuilder<TData> {
+        JobManagerBuilder::default()
+    }
 }
 
-impl<TData: JobContextData> JobfireManager<TData> {
+impl<TData: JobContextData> JobManager<TData> {
     pub async fn schedule(
         &self,
         job_impl: impl JobImpl<TData>,

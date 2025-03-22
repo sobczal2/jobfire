@@ -7,7 +7,7 @@ mod successful_job;
 use failed_job::FailedJobRepoImpl;
 use job::JobRepoImpl;
 use jobfire_core::{
-    builders::jobfire_manager::JobfireManagerBuilder, domain::job::context::JobContextData,
+    builders::job_manager::JobManagerBuilder, domain::job::context::JobContextData,
     storage::Storage,
 };
 use pending_job::PendingJobRepoImpl;
@@ -44,7 +44,7 @@ pub trait WithInMemoryStorage {
     fn with_in_memory_storage(&self) -> Self;
 }
 
-impl<TData: JobContextData> WithInMemoryStorage for JobfireManagerBuilder<TData> {
+impl<TData: JobContextData> WithInMemoryStorage for JobManagerBuilder<TData> {
     fn with_in_memory_storage(&self) -> Self {
         self.with_storage(InMemoryStorage::default())
     }

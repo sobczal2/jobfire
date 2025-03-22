@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/core", "crates/storage/in-memory", "examples/simple"]
+members = ["crates/core", "crates/extensions/ephemeral", "crates/extensions/recurring", "crates/storage/in-memory", "examples/simple"]
 resolver = "2"
 
 [workspace.dependencies]

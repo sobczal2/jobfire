@@ -5,6 +5,8 @@ use thiserror::Error;
 pub enum Error {
     #[error("job impl build failed")]
     JobImplBuildFailed,
+    #[error("job has been cancelled")]
+    JobCancelled,
     #[error("job failed: {message}")]
     Custom { message: String },
 }

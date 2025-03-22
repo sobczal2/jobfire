@@ -5,18 +5,18 @@ use crate::{
         r#impl::JobImpl,
         scheduler::JobScheduler,
     },
-    managers::jobfire_manager::JobfireManager,
+    managers::job_manager::JobManager,
     runners::job::JobRunner,
     storage::Storage,
     workers::job::JobWorkerSettings,
 };
 use std::sync::{Arc, Mutex};
 
-pub struct JobfireManagerBuilder<TData: JobContextData> {
+pub struct JobManagerBuilder<TData: JobContextData> {
     inner: Arc<Mutex<JobfireManagerBuilderInner<TData>>>,
 }
 
-impl<TData: JobContextData> Clone for JobfireManagerBuilder<TData> {
+impl<TData: JobContextData> Clone for JobManagerBuilder<TData> {
     fn clone(&self) -> Self {
         Self {
             inner: self.inner.clone(),
@@ -24,7 +24,7 @@ impl<TData: JobContextData> Clone for JobfireManagerBuilder<TData> {
     }
 }
 
-impl<TData: JobContextData> Default for JobfireManagerBuilder<TData> {
+impl<TData: JobContextData> Default for JobManagerBuilder<TData> {
     fn default() -> Self {
         Self {
             inner: Default::default(),
@@ -67,8 +67,8 @@ macro_rules! check_element {
     };
 }
 
-impl<TData: JobContextData> Builder<JobfireManager<TData>> for JobfireManagerBuilder<TData> {
-    fn build(self) -> super::Result<JobfireManager<TData>> {
+impl<TData: JobContextData> Builder<JobManager<TData>> for JobManagerBuilder<TData> {
+    fn build(self) -> super::Result<JobManager<TData>> {
         let mut inner = self.inner.lock().unwrap();
 
         let storage = check_element!(inner, storage);
@@ -87,7 +87,7 @@ impl<TData: JobContextData> Builder<JobfireManager<TData>> for JobfireManagerBui
             job_actions_registry.clone(),
         );
 
-        let manager = JobfireManager::start(
+        let manager = JobManager::start(
             context,
             storage,
             job_runner,
@@ -98,7 +98,7 @@ impl<TData: JobContextData> Builder<JobfireManager<TData>> for JobfireManagerBui
     }
 }
 
-impl<TData: JobContextData> JobfireManagerBuilder<TData> {
+impl<TData: JobContextData> JobManagerBuilder<TData> {
     pub fn with_storage(&self, storage: impl Into<Storage>) -> Self {
         self.inner.lock().unwrap().storage.replace(storage.into());
         self.clone()
