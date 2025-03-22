@@ -1,8 +1,9 @@
 pub mod error;
 pub mod job;
+pub mod run;
 
 use getset::Getters;
-use job::{FailedJobRepo, JobRepo, PendingJobRepo, RunningJobRepo, SuccessfulJobRepo};
+use job::{JobRepo, PendingJobRepo, RunningJobRepo};
 use std::sync::Arc;
 
 #[derive(Clone, Getters)]

@@ -1,42 +1,25 @@
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 use jobfire_core::{
     async_trait,
     domain::job::{id::JobId, successful::SuccessfulJob},
     storage::{
         error::{Error, Result},
-        job::SuccessfulJobRepo,
+        job::{AddJob, DeleteJob, GetJob, SuccessfulJobRepo},
     },
 };
+use tokio::sync::RwLock;
+
+use crate::{impl_add_job, impl_delete_job, impl_get_job};
 
 #[derive(Default)]
 pub(crate) struct SuccessfulJobRepoImpl {
     elements: Arc<RwLock<Vec<SuccessfulJob>>>,
 }
 
+impl_get_job!(SuccessfulJobRepoImpl, SuccessfulJob);
+impl_add_job!(SuccessfulJobRepoImpl, SuccessfulJob);
+impl_delete_job!(SuccessfulJobRepoImpl, SuccessfulJob);
+
 #[async_trait]
-impl SuccessfulJobRepo for SuccessfulJobRepoImpl {
-    async fn get(&self, job_id: &JobId) -> Result<Option<SuccessfulJob>> {
-        Ok(self
-            .elements
-            .read()
-            .map_err(|_| Error::Internal)?
-            .iter()
-            .find(|e| e.job_id() == job_id)
-            .cloned())
-    }
-
-    async fn add(&self, successful_job: SuccessfulJob) -> Result<()> {
-        let existing = self.get(successful_job.job_id()).await?;
-        if existing.is_some() {
-            return Err(Error::AlreadyExists);
-        }
-
-        self.elements
-            .write()
-            .map_err(|_| Error::Internal)?
-            .push(successful_job.clone());
-
-        Ok(())
-    }
-}
+impl SuccessfulJobRepo for SuccessfulJobRepoImpl {}

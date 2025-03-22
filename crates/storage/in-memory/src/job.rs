@@ -1,10 +1,14 @@
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 use jobfire_core::{
     async_trait,
     domain::job::Job,
-    storage::{error::Error, job::JobRepo},
+    storage::{
+        error::Error,
+        job::{AddJob, GetJob, JobRepo},
+    },
 };
+use tokio::sync::RwLock;
 
 #[derive(Default)]
 pub(crate) struct JobRepoImpl {
@@ -12,7 +16,7 @@ pub(crate) struct JobRepoImpl {
 }
 
 #[async_trait]
-impl JobRepo for JobRepoImpl {
+impl GetJob<Job> for JobRepoImpl {
     async fn get(
         &self,
         job_id: &jobfire_core::domain::job::id::JobId,
@@ -20,23 +24,24 @@ impl JobRepo for JobRepoImpl {
         Ok(self
             .elements
             .read()
-            .map_err(|_| Error::Internal)?
+            .await
             .iter()
-            .find(|e| e.id() == job_id)
+            .find(|job| job.id() == job_id)
             .cloned())
     }
+}
 
+#[async_trait]
+impl AddJob<Job> for JobRepoImpl {
     async fn add(&self, job: Job) -> jobfire_core::storage::error::Result<()> {
-        let existing = self.get(job.id()).await?;
-        if existing.is_some() {
+        if self.get(job.id()).await?.is_some() {
             return Err(Error::AlreadyExists);
         }
 
-        self.elements
-            .write()
-            .map_err(|_| Error::Internal)?
-            .push(job.clone());
-
+        self.elements.write().await.push(job);
         Ok(())
     }
 }
+
+#[async_trait]
+impl JobRepo for JobRepoImpl {}

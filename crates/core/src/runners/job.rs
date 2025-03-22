@@ -2,12 +2,15 @@ use chrono::Utc;
 use thiserror::Error;
 
 use crate::{
-    domain::job::{
-        Job,
-        context::{JobContext, JobContextData},
-        id::JobId,
-        pending::PendingJob,
-        running::RunningJob,
+    domain::{
+        job::{
+            Job,
+            context::{Context, ContextData},
+            id::JobId,
+            pending::PendingJob,
+            running::RunningJob,
+        },
+        run::id::RunId,
     },
     registries::job_actions::JobActionsRegistry,
     storage::{self, Storage},
@@ -30,15 +33,15 @@ enum Error {
 
 type Result<T> = std::result::Result<T, Error>;
 
-pub struct JobRunner<TData: JobContextData> {
+pub struct JobRunner<TData: ContextData> {
     storage: Storage,
-    context: JobContext<TData>,
+    context: Context<TData>,
     job_actions_registry: JobActionsRegistry<TData>,
     on_success_runner: OnSuccessRunner<TData>,
     on_fail_runner: OnFailRunner<TData>,
 }
 
-impl<TData: JobContextData> Clone for JobRunner<TData> {
+impl<TData: ContextData> Clone for JobRunner<TData> {
     fn clone(&self) -> Self {
         Self {
             storage: self.storage.clone(),
@@ -50,10 +53,10 @@ impl<TData: JobContextData> Clone for JobRunner<TData> {
     }
 }
 
-impl<TData: JobContextData> JobRunner<TData> {
+impl<TData: ContextData> JobRunner<TData> {
     pub fn new(
         storage: Storage,
-        context: JobContext<TData>,
+        context: Context<TData>,
         job_actions_registry: JobActionsRegistry<TData>,
     ) -> Self {
         Self {
@@ -92,7 +95,7 @@ impl<TData: JobContextData> JobRunner<TData> {
             .run(job.r#impl().clone(), self.context.clone())
             .await;
 
-        let running_job = self.storage.running_job_repo().pop(job.id()).await?;
+        let running_job = self.storage.running_job_repo().delete(job.id()).await?;
 
         match run_result {
             Ok(report) => {
@@ -120,7 +123,7 @@ impl<TData: JobContextData> JobRunner<TData> {
     }
 
     async fn save_running_job(&self, job: &Job) -> Result<()> {
-        let running_job = RunningJob::new(*job.id(), Utc::now());
+        let running_job = RunningJob::new(RunId::new(), *job.id(), Utc::now());
         self.storage.running_job_repo().add(running_job).await?;
         Ok(())
     }

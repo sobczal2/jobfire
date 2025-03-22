@@ -7,7 +7,7 @@ use tokio::{
 };
 
 use crate::{
-    domain::job::{context::JobContextData, pending::PendingJob},
+    domain::job::{context::ContextData, pending::PendingJob},
     runners::job::JobRunner,
     storage::{self, Storage},
 };
@@ -98,14 +98,14 @@ pub enum State {
     Stopped,
 }
 
-pub(crate) struct JobWorker<TData: JobContextData> {
+pub(crate) struct JobWorker<TData: ContextData> {
     settings: JobWorkerSettings,
     storage: Storage,
     job_runner: JobRunner<TData>,
     state: Arc<RwLock<State>>,
 }
 
-impl<TData: JobContextData> JobWorker<TData> {
+impl<TData: ContextData> JobWorker<TData> {
     pub fn new(
         settings: JobWorkerSettings,
         storage: Storage,

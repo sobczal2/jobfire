@@ -2,13 +2,15 @@ use chrono::Utc;
 use thiserror::Error;
 
 use crate::{
-    domain::job::{
-        self, Job,
-        context::{JobContext, JobContextData},
-        pending::PendingJob,
-        report::Report,
-        running::RunningJob,
-        successful::SuccessfulJob,
+    domain::{
+        job::{
+            self, Job,
+            context::{Context, ContextData},
+            pending::PendingJob,
+            report::Report,
+            running::RunningJob,
+        },
+        run::successful::SuccessfulRun,
     },
     registries::job_actions::JobActionsRegistry,
     storage::{self, Storage},
@@ -45,13 +47,13 @@ impl OnSuccessRunnerInput {
     }
 }
 
-pub struct OnSuccessRunner<TData: JobContextData> {
+pub struct OnSuccessRunner<TData: ContextData> {
     storage: Storage,
-    context: JobContext<TData>,
+    context: Context<TData>,
     job_actions_registry: JobActionsRegistry<TData>,
 }
 
-impl<TData: JobContextData> Clone for OnSuccessRunner<TData> {
+impl<TData: ContextData> Clone for OnSuccessRunner<TData> {
     fn clone(&self) -> Self {
         Self {
             storage: self.storage.clone(),
@@ -61,10 +63,10 @@ impl<TData: JobContextData> Clone for OnSuccessRunner<TData> {
     }
 }
 
-impl<TData: JobContextData> OnSuccessRunner<TData> {
+impl<TData: ContextData> OnSuccessRunner<TData> {
     pub fn new(
         storage: Storage,
-        context: JobContext<TData>,
+        context: Context<TData>,
         job_actions_registry: JobActionsRegistry<TData>,
     ) -> Self {
         Self {
@@ -81,7 +83,8 @@ impl<TData: JobContextData> OnSuccessRunner<TData> {
     }
 
     async fn run_internal(&self, input: &OnSuccessRunnerInput) -> Result<()> {
-        let successful_job = SuccessfulJob::new(
+        let successful_job = SuccessfulRun::new(
+            *input.running_job.run_id(),
             *input.job.id(),
             *input.pending_job.scheduled_at(),
             Utc::now(),
@@ -100,7 +103,7 @@ impl<TData: JobContextData> OnSuccessRunner<TData> {
 
         job_actions
             .on_success(input.job.r#impl().clone(), self.context.clone())
-            .await?;
+            .await;
 
         Ok(())
     }

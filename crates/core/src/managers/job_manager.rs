@@ -2,7 +2,7 @@ use crate::{
     builders::{Builder, job_manager::JobManagerBuilder, job_scheduler::JobSchedulerBuilder},
     domain::job::{
         Job,
-        context::{JobContext, JobContextData},
+        context::{Context, ContextData},
         id::JobId,
         r#impl::JobImpl,
         scheduler::{self, JobScheduler},
@@ -32,8 +32,8 @@ pub enum Error {
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[allow(dead_code)]
-pub struct JobManager<TData: JobContextData> {
-    context: JobContext<TData>,
+pub struct JobManager<TData: ContextData> {
+    context: Context<TData>,
     storage: Storage,
     job_runner: JobRunner<TData>,
     job_worker_settings: JobWorkerSettings,
@@ -41,9 +41,9 @@ pub struct JobManager<TData: JobContextData> {
     job_scheduler: Arc<dyn JobScheduler>,
 }
 
-impl<TData: JobContextData> JobManager<TData> {
+impl<TData: ContextData> JobManager<TData> {
     pub fn start(
-        context: JobContext<TData>,
+        context: Context<TData>,
         storage: Storage,
         job_runner: JobRunner<TData>,
         job_worker_settings: JobWorkerSettings,
@@ -99,7 +99,7 @@ impl<TData: JobContextData> JobManager<TData> {
     }
 }
 
-impl<TData: JobContextData> JobManager<TData> {
+impl<TData: ContextData> JobManager<TData> {
     pub async fn schedule(
         &self,
         job_impl: impl JobImpl<TData>,

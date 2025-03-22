@@ -2,14 +2,18 @@ use std::sync::Arc;
 
 use super::scheduler::JobScheduler;
 
-pub trait JobContextData: Send + Sync + 'static {}
+/// Marker trait for context data accessible from jobs.
+/// Types implementing this must be `Send` + `Sync` + `'static`.
+pub trait ContextData: Send + Sync + 'static {}
 
-pub struct JobContext<TData: JobContextData> {
+/// Context for every job execution.
+/// Provides access to data and allows scheduling new jobs.
+pub struct Context<TData: ContextData> {
     data: Arc<TData>,
     job_scheduler: Arc<dyn JobScheduler>,
 }
 
-impl<TData: JobContextData> Clone for JobContext<TData> {
+impl<TData: ContextData> Clone for Context<TData> {
     fn clone(&self) -> Self {
         Self {
             data: self.data.clone(),
@@ -18,7 +22,7 @@ impl<TData: JobContextData> Clone for JobContext<TData> {
     }
 }
 
-impl<TData: JobContextData> JobContext<TData> {
+impl<TData: ContextData> Context<TData> {
     pub fn new(data: Arc<TData>, job_scheduler: Arc<dyn JobScheduler>) -> Self {
         Self {
             data,

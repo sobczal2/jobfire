@@ -2,12 +2,14 @@ use chrono::Utc;
 use thiserror::Error;
 
 use crate::{
-    domain::job::{
-        self, Job,
-        context::{JobContext, JobContextData},
-        failed::FailedJob,
-        pending::PendingJob,
-        running::RunningJob,
+    domain::{
+        job::{
+            self, Job,
+            context::{Context, ContextData},
+            pending::PendingJob,
+            running::RunningJob,
+        },
+        run::failed::FailedRun,
     },
     registries::job_actions::JobActionsRegistry,
     storage::{self, Storage},
@@ -19,8 +21,6 @@ enum Error {
     Storage(#[from] storage::error::Error),
     #[error("job actions not found")]
     JobActionsNotFound,
-    #[error("on_fail callback failed: {0}")]
-    CallbackFailed(#[from] job::error::Error),
 }
 
 type Result<T> = std::result::Result<T, Error>;
@@ -49,13 +49,13 @@ impl OnFailRunnerInput {
     }
 }
 
-pub struct OnFailRunner<TData: JobContextData> {
+pub struct OnFailRunner<TData: ContextData> {
     storage: Storage,
-    context: JobContext<TData>,
+    context: Context<TData>,
     job_actions_registry: JobActionsRegistry<TData>,
 }
 
-impl<TData: JobContextData> Clone for OnFailRunner<TData> {
+impl<TData: ContextData> Clone for OnFailRunner<TData> {
     fn clone(&self) -> Self {
         Self {
             storage: self.storage.clone(),
@@ -65,10 +65,10 @@ impl<TData: JobContextData> Clone for OnFailRunner<TData> {
     }
 }
 
-impl<TData: JobContextData> OnFailRunner<TData> {
+impl<TData: ContextData> OnFailRunner<TData> {
     pub fn new(
         storage: Storage,
-        context: JobContext<TData>,
+        context: Context<TData>,
         job_actions_registry: JobActionsRegistry<TData>,
     ) -> Self {
         Self {
@@ -85,7 +85,8 @@ impl<TData: JobContextData> OnFailRunner<TData> {
     }
 
     async fn run_internal(&self, input: &OnFailRunnerInput) -> Result<()> {
-        let failed_job = FailedJob::new(
+        let failed_job = FailedRun::new(
+            *input.running_job.run_id(),
             *input.job.id(),
             *input.pending_job.scheduled_at(),
             Utc::now(),
@@ -101,7 +102,7 @@ impl<TData: JobContextData> OnFailRunner<TData> {
 
         job_actions
             .on_fail(input.job.r#impl().clone(), self.context.clone())
-            .await?;
+            .await;
 
         Ok(())
     }

@@ -1,5 +1,5 @@
 use super::{
-    context::{JobContext, JobContextData},
+    context::{Context, ContextData},
     report::Report,
 };
 use async_trait::async_trait;
@@ -28,13 +28,13 @@ impl JobImplName {
 }
 
 #[async_trait]
-pub trait JobImpl<TData: JobContextData>:
+pub trait JobImpl<TData: ContextData>:
     Serialize + DeserializeOwned + Sized + Send + Sync + 'static
 {
     fn name() -> JobImplName;
-    async fn run(&self, context: JobContext<TData>) -> super::error::Result<Report>;
-    async fn on_fail(&self, context: JobContext<TData>) -> super::error::Result<()>;
-    async fn on_success(&self, context: JobContext<TData>) -> super::error::Result<()>;
+    async fn run(&self, context: Context<TData>) -> super::error::Result<Report>;
+    async fn on_fail(&self, context: Context<TData>);
+    async fn on_success(&self, context: Context<TData>);
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -49,7 +49,7 @@ impl SerializedJobImpl {
         }
     }
 
-    pub fn from_job_impl<TData: JobContextData, TJobImpl: JobImpl<TData>>(
+    pub fn from_job_impl<TData: ContextData, TJobImpl: JobImpl<TData>>(
         value: TJobImpl,
     ) -> Result<Self> {
         let name = TJobImpl::name();
@@ -59,7 +59,7 @@ impl SerializedJobImpl {
         ))
     }
 
-    pub fn deserialize<TData: JobContextData, TJobImpl: JobImpl<TData>>(&self) -> Result<TJobImpl> {
+    pub fn deserialize<TData: ContextData, TJobImpl: JobImpl<TData>>(&self) -> Result<TJobImpl> {
         serde_json::from_value(self.inner.value.clone()).map_err(|_| Error::DeserializationFailed)
     }
 

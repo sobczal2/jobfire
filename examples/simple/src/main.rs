@@ -3,7 +3,7 @@ use jobfire_core::{
     Uuid, async_trait,
     builders::Builder,
     domain::job::{
-        context::{JobContext, JobContextData},
+        context::{Context, ContextData},
         error::Result,
         r#impl::{JobImpl, JobImplName},
         report::Report,
@@ -30,7 +30,7 @@ impl SimpleContextData {
     }
 }
 
-impl JobContextData for SimpleContextData {}
+impl ContextData for SimpleContextData {}
 
 #[derive(Serialize, Deserialize)]
 struct SimpleJobImpl {
@@ -43,7 +43,7 @@ impl JobImpl<SimpleContextData> for SimpleJobImpl {
         JobImplName::new("simple".to_owned())
     }
 
-    async fn run(&self, context: JobContext<SimpleContextData>) -> Result<Report> {
+    async fn run(&self, context: Context<SimpleContextData>) -> Result<Report> {
         let context = context.data();
         context.increment();
         log::info!("Job number {} run", context.read());
@@ -51,13 +51,11 @@ impl JobImpl<SimpleContextData> for SimpleJobImpl {
         Ok(Report::new())
     }
 
-    async fn on_success(&self, _context: JobContext<SimpleContextData>) -> Result<()> {
+    async fn on_success(&self, _context: Context<SimpleContextData>) {
         log::info!("on_sucess ran: {}", self.xd);
-        Ok(())
     }
-    async fn on_fail(&self, _context: JobContext<SimpleContextData>) -> Result<()> {
+    async fn on_fail(&self, _context: Context<SimpleContextData>) {
         log::info!("on_fail ran: {}", self.xd);
-        Ok(())
     }
 }
 

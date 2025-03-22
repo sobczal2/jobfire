@@ -6,3 +6,4 @@ edition = "2024"
 [dependencies]
 jobfire-core.workspace = true
 chrono.workspace = true
+tokio.workspace = true

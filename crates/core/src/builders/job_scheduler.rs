@@ -23,8 +23,8 @@ pub struct JobSchedulerBuilderInner {
     storage: Option<Storage>,
 }
 
-impl Builder<Arc<dyn JobScheduler>> for JobSchedulerBuilder {
-    fn build(self) -> super::Result<Arc<dyn JobScheduler>> {
+impl Builder<Box<dyn JobScheduler>> for JobSchedulerBuilder {
+    fn build(self) -> super::Result<Box<dyn JobScheduler>> {
         let mut inner = self.inner.lock().unwrap();
 
         let storage = match inner.storage.take() {
@@ -36,7 +36,7 @@ impl Builder<Arc<dyn JobScheduler>> for JobSchedulerBuilder {
             }
         };
         let job_scheduler = SimpleJobScheduler::new(storage);
-        Ok(Arc::new(job_scheduler))
+        Ok(Box::new(job_scheduler))
     }
 }
 

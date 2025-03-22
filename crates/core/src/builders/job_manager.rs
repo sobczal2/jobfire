@@ -1,7 +1,7 @@
 use super::{Builder, job_actions_registry::JobActionsRegistryBuilder};
 use crate::{
     domain::job::{
-        context::{JobContext, JobContextData},
+        context::{Context, ContextData},
         r#impl::JobImpl,
         scheduler::JobScheduler,
     },
@@ -12,11 +12,11 @@ use crate::{
 };
 use std::sync::{Arc, Mutex};
 
-pub struct JobManagerBuilder<TData: JobContextData> {
+pub struct JobManagerBuilder<TData: ContextData> {
     inner: Arc<Mutex<JobfireManagerBuilderInner<TData>>>,
 }
 
-impl<TData: JobContextData> Clone for JobManagerBuilder<TData> {
+impl<TData: ContextData> Clone for JobManagerBuilder<TData> {
     fn clone(&self) -> Self {
         Self {
             inner: self.inner.clone(),
@@ -24,7 +24,7 @@ impl<TData: JobContextData> Clone for JobManagerBuilder<TData> {
     }
 }
 
-impl<TData: JobContextData> Default for JobManagerBuilder<TData> {
+impl<TData: ContextData> Default for JobManagerBuilder<TData> {
     fn default() -> Self {
         Self {
             inner: Default::default(),
@@ -32,9 +32,9 @@ impl<TData: JobContextData> Default for JobManagerBuilder<TData> {
     }
 }
 
-pub type JobSchedulerFactory = Box<dyn FnOnce(Storage) -> Arc<dyn JobScheduler>>;
+pub type JobSchedulerFactory = Box<dyn FnOnce(Storage) -> Box<dyn JobScheduler>>;
 
-pub struct JobfireManagerBuilderInner<TData: JobContextData> {
+pub struct JobfireManagerBuilderInner<TData: ContextData> {
     storage: Option<Storage>,
     context_data: Option<TData>,
     job_scheduler_factory: Option<JobSchedulerFactory>,
@@ -42,7 +42,7 @@ pub struct JobfireManagerBuilderInner<TData: JobContextData> {
     job_worker_settings: Option<JobWorkerSettings>,
 }
 
-impl<TData: JobContextData> Default for JobfireManagerBuilderInner<TData> {
+impl<TData: ContextData> Default for JobfireManagerBuilderInner<TData> {
     fn default() -> Self {
         Self {
             storage: Default::default(),
@@ -67,19 +67,18 @@ macro_rules! check_element {
     };
 }
 
-impl<TData: JobContextData> Builder<JobManager<TData>> for JobManagerBuilder<TData> {
+impl<TData: ContextData> Builder<JobManager<TData>> for JobManagerBuilder<TData> {
     fn build(self) -> super::Result<JobManager<TData>> {
         let mut inner = self.inner.lock().unwrap();
 
         let storage = check_element!(inner, storage);
-        let context_data = check_element!(inner, context_data);
+        let context_data = Arc::from(check_element!(inner, context_data));
         let job_scheduler_factory = check_element!(inner, job_scheduler_factory);
         let job_worker_settings = check_element!(inner, job_worker_settings);
         let job_actions_registry_builder = inner.job_actions_registry_builder.clone();
 
-        let context_data = Arc::new(context_data);
-        let job_scheduler = (job_scheduler_factory)(storage.clone());
-        let context = JobContext::new(context_data, job_scheduler.clone());
+        let job_scheduler: Arc<dyn JobScheduler> = (job_scheduler_factory)(storage.clone()).into();
+        let context = Context::new(context_data, job_scheduler.clone());
         let job_actions_registry = job_actions_registry_builder.build()?;
         let job_runner = JobRunner::new(
             storage.clone(),
@@ -98,7 +97,7 @@ impl<TData: JobContextData> Builder<JobManager<TData>> for JobManagerBuilder<TDa
     }
 }
 
-impl<TData: JobContextData> JobManagerBuilder<TData> {
+impl<TData: ContextData> JobManagerBuilder<TData> {
     pub fn with_storage(&self, storage: impl Into<Storage>) -> Self {
         self.inner.lock().unwrap().storage.replace(storage.into());
         self.clone()
@@ -115,7 +114,7 @@ impl<TData: JobContextData> JobManagerBuilder<TData> {
 
     pub fn with_job_scheduler_factory(
         &self,
-        job_scheduler_factory: Box<dyn FnOnce(Storage) -> Arc<dyn JobScheduler>>,
+        job_scheduler_factory: Box<dyn FnOnce(Storage) -> Box<dyn JobScheduler>>,
     ) -> Self {
         self.inner
             .lock()
