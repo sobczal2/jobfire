@@ -7,6 +7,7 @@ use crate::{
     },
     managers::job_manager::JobManager,
     runners::job::JobRunner,
+    services::{Services, builder::ServicesBuilder},
     storage::Storage,
     workers::job::JobWorkerSettings,
 };
@@ -36,6 +37,7 @@ pub type JobSchedulerFactory = Box<dyn FnOnce(Storage) -> Box<dyn JobScheduler>>
 
 pub struct JobfireManagerBuilderInner<TData: ContextData> {
     storage: Option<Storage>,
+    services: ServicesBuilder,
     context_data: Option<TData>,
     job_scheduler_factory: Option<JobSchedulerFactory>,
     job_actions_registry_builder: JobActionsRegistryBuilder<TData>,
@@ -46,6 +48,7 @@ impl<TData: ContextData> Default for JobfireManagerBuilderInner<TData> {
     fn default() -> Self {
         Self {
             storage: Default::default(),
+            services: ServicesBuilder::default(),
             context_data: Default::default(),
             job_scheduler_factory: Default::default(),
             job_actions_registry_builder: JobActionsRegistryBuilder::default(),
@@ -77,8 +80,9 @@ impl<TData: ContextData> Builder<JobManager<TData>> for JobManagerBuilder<TData>
         let job_worker_settings = check_element!(inner, job_worker_settings);
         let job_actions_registry_builder = inner.job_actions_registry_builder.clone();
 
+        let services: Services = inner.services.clone().into();
         let job_scheduler: Arc<dyn JobScheduler> = (job_scheduler_factory)(storage.clone()).into();
-        let context = Context::new(context_data, job_scheduler.clone());
+        let context = Context::new(context_data, job_scheduler.clone(), services.clone());
         let job_actions_registry = job_actions_registry_builder.build()?;
         let job_runner = JobRunner::new(
             storage.clone(),
@@ -88,6 +92,7 @@ impl<TData: ContextData> Builder<JobManager<TData>> for JobManagerBuilder<TData>
 
         let manager = JobManager::start(
             context,
+            services,
             storage,
             job_runner,
             job_worker_settings,
@@ -139,6 +144,11 @@ impl<TData: ContextData> JobManagerBuilder<TData> {
             .unwrap()
             .job_actions_registry_builder
             .register::<TJobImpl>();
+        self.clone()
+    }
+
+    pub fn add_service<T: 'static + Send + Sync>(&self, service: T) -> Self {
+        self.inner.lock().unwrap().services.add_service(service);
         self.clone()
     }
 }

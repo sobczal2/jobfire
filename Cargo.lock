@@ -231,7 +231,9 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "jobfire-core",
+ "log",
  "serde",
+ "thiserror",
  "tokio",
  "uuid",
 ]
@@ -242,6 +244,7 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "jobfire-core",
+ "jobfire-ephemeral",
  "log",
  "serde",
  "simple_logger",

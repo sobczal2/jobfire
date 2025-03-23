@@ -9,3 +9,5 @@ chrono.workspace = true
 serde.workspace = true
 tokio.workspace = true
 uuid.workspace = true
+thiserror.workspace = true
+log.workspace = true

@@ -8,6 +8,7 @@ use crate::{
         scheduler::{self, JobScheduler},
     },
     runners::job::JobRunner,
+    services::Services,
     storage::{self, Storage},
     util::r#async::poll_predicate,
     workers::job::{JobWorker, JobWorkerHandle, JobWorkerSettings, State},
@@ -15,7 +16,7 @@ use crate::{
 use chrono::{DateTime, Duration, Utc};
 use std::sync::Arc;
 use thiserror::Error;
-use tokio::time::interval;
+use tokio::{sync::RwLock, time::interval};
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -34,6 +35,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[allow(dead_code)]
 pub struct JobManager<TData: ContextData> {
     context: Context<TData>,
+    services: Services,
     storage: Storage,
     job_runner: JobRunner<TData>,
     job_worker_settings: JobWorkerSettings,
@@ -44,6 +46,7 @@ pub struct JobManager<TData: ContextData> {
 impl<TData: ContextData> JobManager<TData> {
     pub fn start(
         context: Context<TData>,
+        services: Services,
         storage: Storage,
         job_runner: JobRunner<TData>,
         job_worker_settings: JobWorkerSettings,
@@ -55,6 +58,7 @@ impl<TData: ContextData> JobManager<TData> {
         log::info!("JobfireManager started");
         Self {
             context,
+            services,
             storage,
             job_runner,
             job_worker_settings,
@@ -125,5 +129,11 @@ impl<TData: ContextData> JobManager<TData> {
             .reschedule(job_id, new_scheduled_at)
             .await?;
         Ok(())
+    }
+}
+
+impl<TData: ContextData> JobManager<TData> {
+    pub fn get_service<T: 'static>(&self) -> Option<&T> {
+        self.services.get_service()
     }
 }

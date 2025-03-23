@@ -23,8 +23,8 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub struct JobImplName(String);
 
 impl JobImplName {
-    pub fn new(name: String) -> Self {
-        Self(name)
+    pub fn new(name: impl Into<String>) -> Self {
+        Self(name.into())
     }
 }
 

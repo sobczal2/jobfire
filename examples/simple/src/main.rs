@@ -11,6 +11,7 @@ use jobfire_core::{
     managers::job_manager::JobManager,
     storage::memory::WithMemoryStorage,
 };
+use jobfire_ephemeral::{AddEphemeralExtension, ScheduleEphemeralJob};
 use serde::{Deserialize, Serialize};
 use simple_logger::SimpleLogger;
 use std::{ops::AddAssign, sync::Mutex};
@@ -72,8 +73,17 @@ async fn main() {
 
     let manager = JobManager::basic_builder(context_data)
         .with_memory_storage()
+        .add_ephemeral_extension()
         .register_job_impl::<SimpleJobImpl>()
         .build()
+        .unwrap();
+
+    manager
+        .schedule_ephemeral_job(async |_| {
+            log::info!("hello from ephemeral job");
+            Ok(Report::new())
+        })
+        .await
         .unwrap();
 
     let now = Utc::now();

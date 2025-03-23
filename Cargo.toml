@@ -9,6 +9,7 @@ resolver = "2"
 
 [workspace.dependencies]
 jobfire-core = { path = "./crates/core/" }
+jobfire-ephemeral = { path = "./crates/extensions/ephemeral/" }
 log = { version = "0.4.26" }
 serde = { version = "1.0.219", features = ["derive", "rc"] }
 serde_json = { version = "1.0.140" }
