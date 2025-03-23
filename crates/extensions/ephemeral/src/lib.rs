@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use context_data::EphemeralContextData;
 use ephemeral_fn_registry::{EphemeralFnRegistry, EphemeralRunFn};
 use r#impl::{EphemeralJobId, EphemeralJobImpl};
 use jobfire_core::{
@@ -16,7 +15,6 @@ use jobfire_core::{
     managers::{self, job_manager::JobManager},
 };
 
-pub mod context_data;
 pub mod ephemeral_fn_registry;
 pub mod r#impl;
 
