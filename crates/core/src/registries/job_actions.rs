@@ -15,7 +15,7 @@ pub type RunFn<TData: ContextData> = Arc<
     dyn Fn(
             SerializedJobImpl,
             Context<TData>,
-        ) -> Pin<Box<dyn Future<Output = job::error::Result<Report>> + Send>>
+        ) -> Pin<Box<dyn Future<Output = job::error::JobResult<Report>> + Send>>
         + Send
         + Sync,
 >;
@@ -73,7 +73,7 @@ impl<TData: ContextData> JobActions<TData> {
         &self,
         serialized_job_impl: SerializedJobImpl,
         job_context: Context<TData>,
-    ) -> job::error::Result<Report> {
+    ) -> job::error::JobResult<Report> {
         (self.run.clone())(serialized_job_impl, job_context).await
     }
 

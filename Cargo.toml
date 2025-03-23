@@ -1,10 +1,14 @@
 [workspace]
-members = ["crates/core", "crates/extensions/ephemeral", "crates/extensions/recurring", "crates/storage/in-memory", "examples/simple"]
+members = [
+  "crates/core",
+  "crates/extensions/ephemeral",
+  "crates/extensions/recurring",
+  "examples/simple",
+]
 resolver = "2"
 
 [workspace.dependencies]
 jobfire-core = { path = "./crates/core/" }
-jobfire-storage-in-memory = { path = "./crates/storage/in-memory/" }
 log = { version = "0.4.26" }
 serde = { version = "1.0.219", features = ["derive", "rc"] }
 serde_json = { version = "1.0.140" }

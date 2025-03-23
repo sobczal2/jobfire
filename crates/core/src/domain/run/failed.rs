@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use getset::Getters;
 use serde::{Deserialize, Serialize};
 
-use crate::domain::job::{Error, id::JobId};
+use crate::domain::job::{Error, error::JobError, id::JobId};
 
 use super::id::RunId;
 
@@ -14,7 +14,7 @@ pub struct FailedRun {
     job_id: JobId,
     scheduled_at: DateTime<Utc>,
     finished_at: DateTime<Utc>,
-    error: Error,
+    error: JobError,
 }
 
 impl FailedRun {
@@ -23,7 +23,7 @@ impl FailedRun {
         job_id: JobId,
         scheduled_at: DateTime<Utc>,
         finished_at: DateTime<Utc>,
-        error: Error,
+        error: JobError,
     ) -> Self {
         Self {
             run_id,

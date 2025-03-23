@@ -3,7 +3,7 @@ use thiserror::Error;
 
 /// Possible errors returned from job run.
 #[derive(Error, Clone, Serialize, Deserialize, Debug)]
-pub enum Error {
+pub enum JobError {
     /// Failed to build a job, this can happen when JobImpl is not found in regsitry
     #[error("job impl build failed")]
     JobImplBuildFailed,
@@ -15,4 +15,4 @@ pub enum Error {
     Custom { message: String },
 }
 
-pub type Result<T> = std::result::Result<T, Error>;
+pub type JobResult<T> = std::result::Result<T, JobError>;

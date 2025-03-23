@@ -120,6 +120,18 @@ pub trait PendingJobRepo: Send + Sync + 'static {
 /// currently being executed.
 #[async_trait]
 pub trait RunningJobRepo: Send + Sync + 'static {
+    /// Retrieves a running job by its job_id.
+    ///
+    /// # Parameters
+    ///
+    /// * `job_id` - The job_id of the running job to retrieve.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Option<RunningJob>>` - Returns the running job if found, None if not found,
+    ///   or an error if the retrieval operation failed.
+    async fn get(&self, job_id: &JobId) -> Result<Option<RunningJob>>;
+
     /// Adds a running job to the repository.
     ///
     /// # Parameters

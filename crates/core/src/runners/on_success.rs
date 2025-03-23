@@ -23,7 +23,7 @@ enum Error {
     #[error("job actions not found")]
     JobActionsNotFound,
     #[error("on_success callback failed: {0}")]
-    CallbackFailed(#[from] job::error::Error),
+    CallbackFailed(#[from] job::error::JobError),
 }
 
 type Result<T> = std::result::Result<T, Error>;
@@ -92,7 +92,7 @@ impl<TData: ContextData> OnSuccessRunner<TData> {
         );
 
         self.storage
-            .successful_job_repo()
+            .successful_run_repo()
             .add(successful_job)
             .await?;
 

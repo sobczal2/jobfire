@@ -60,7 +60,7 @@ impl<TData: ContextData> JobActionsRegistryBuilder<TData> {
                 Box::pin(async move {
                     let job_impl = serialized_job_impl
                         .deserialize::<TData, TJobImpl>()
-                        .map_err(|_| job::error::Error::JobImplBuildFailed);
+                        .map_err(|_| job::error::JobError::JobImplBuildFailed);
                     match job_impl {
                         Ok(job_impl) => job_impl.run(job_context).await,
                         Err(e) => {
@@ -77,7 +77,7 @@ impl<TData: ContextData> JobActionsRegistryBuilder<TData> {
                 Box::pin(async move {
                     let job_impl = serialized_job_impl
                         .deserialize::<TData, TJobImpl>()
-                        .map_err(|_| job::error::Error::JobImplBuildFailed);
+                        .map_err(|_| job::error::JobError::JobImplBuildFailed);
                     match job_impl {
                         Ok(job_impl) => job_impl.on_success(job_context).await,
                         Err(e) => {
@@ -93,7 +93,7 @@ impl<TData: ContextData> JobActionsRegistryBuilder<TData> {
                 Box::pin(async move {
                     let job_impl = serialized_job_impl
                         .deserialize::<TData, TJobImpl>()
-                        .map_err(|_| job::error::Error::JobImplBuildFailed);
+                        .map_err(|_| job::error::JobError::JobImplBuildFailed);
                     match job_impl {
                         Ok(job_impl) => job_impl.on_fail(job_context).await,
                         Err(e) => {

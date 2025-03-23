@@ -1,9 +1,11 @@
 pub mod error;
 pub mod job;
+pub mod memory;
 pub mod run;
 
 use getset::Getters;
 use job::{JobRepo, PendingJobRepo, RunningJobRepo};
+use run::{FailedRunRepo, SuccessfulRunRepo};
 use std::sync::Arc;
 
 #[derive(Clone, Getters)]
@@ -16,8 +18,8 @@ struct StorageInner {
     job_repo: Box<dyn JobRepo>,
     pending_job_repo: Box<dyn PendingJobRepo>,
     running_job_repo: Box<dyn RunningJobRepo>,
-    successful_job_repo: Box<dyn SuccessfulJobRepo>,
-    failed_job_repo: Box<dyn FailedJobRepo>,
+    successful_run_repo: Box<dyn SuccessfulRunRepo>,
+    failed_run_repo: Box<dyn FailedRunRepo>,
 }
 
 impl Storage {
@@ -25,16 +27,16 @@ impl Storage {
         job_repo: Box<dyn JobRepo>,
         pending_job_repo: Box<dyn PendingJobRepo>,
         running_job_repo: Box<dyn RunningJobRepo>,
-        successful_job_repo: Box<dyn SuccessfulJobRepo>,
-        failed_job_repo: Box<dyn FailedJobRepo>,
+        successful_run_repo: Box<dyn SuccessfulRunRepo>,
+        failed_run_repo: Box<dyn FailedRunRepo>,
     ) -> Self {
         Self {
             inner: Arc::new(StorageInner {
                 job_repo,
                 pending_job_repo,
                 running_job_repo,
-                successful_job_repo,
-                failed_job_repo,
+                successful_run_repo,
+                failed_run_repo,
             }),
         }
     }
@@ -51,11 +53,11 @@ impl Storage {
         self.inner.running_job_repo.as_ref()
     }
 
-    pub fn successful_job_repo(&self) -> &dyn SuccessfulJobRepo {
-        self.inner.successful_job_repo.as_ref()
+    pub fn successful_run_repo(&self) -> &dyn SuccessfulRunRepo {
+        self.inner.successful_run_repo.as_ref()
     }
 
-    pub fn failed_job_repo(&self) -> &dyn FailedJobRepo {
-        self.inner.failed_job_repo.as_ref()
+    pub fn failed_run_repo(&self) -> &dyn FailedRunRepo {
+        self.inner.failed_run_repo.as_ref()
     }
 }

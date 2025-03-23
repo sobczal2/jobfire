@@ -4,13 +4,13 @@ use jobfire_core::{
     builders::Builder,
     domain::job::{
         context::{Context, ContextData},
-        error::Result,
+        error::JobResult,
         r#impl::{JobImpl, JobImplName},
         report::Report,
     },
     managers::job_manager::JobManager,
+    storage::memory::WithMemoryStorage,
 };
-use jobfire_storage_in_memory::WithInMemoryStorage;
 use serde::{Deserialize, Serialize};
 use simple_logger::SimpleLogger;
 use std::{ops::AddAssign, sync::Mutex};
@@ -43,7 +43,7 @@ impl JobImpl<SimpleContextData> for SimpleJobImpl {
         JobImplName::new("simple".to_owned())
     }
 
-    async fn run(&self, context: Context<SimpleContextData>) -> Result<Report> {
+    async fn run(&self, context: Context<SimpleContextData>) -> JobResult<Report> {
         let context = context.data();
         context.increment();
         log::info!("Job number {} run", context.read());
@@ -71,7 +71,7 @@ async fn main() {
     };
 
     let manager = JobManager::basic_builder(context_data)
-        .with_in_memory_storage()
+        .with_memory_storage()
         .register_job_impl::<SimpleJobImpl>()
         .build()
         .unwrap();

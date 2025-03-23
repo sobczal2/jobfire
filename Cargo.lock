@@ -235,7 +235,6 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "jobfire-core",
- "jobfire-storage-in-memory",
  "log",
  "serde",
  "simple_logger",
@@ -245,15 +244,6 @@ dependencies = [
 [[package]]
 name = "jobfire-recurring"
 version = "0.1.0"
-
-[[package]]
-name = "jobfire-storage-in-memory"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "jobfire-core",
- "tokio",
-]
 
 [[package]]
 name = "js-sys"

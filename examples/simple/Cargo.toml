@@ -5,7 +5,6 @@ edition = "2024"
 
 [dependencies]
 jobfire-core.workspace = true
-jobfire-storage-in-memory.workspace = true
 log.workspace = true
 simple_logger.workspace = true
 chrono.workspace = true

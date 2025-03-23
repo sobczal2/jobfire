@@ -4,8 +4,9 @@ use thiserror::Error;
 use crate::{
     domain::{
         job::{
-            self, Job,
+            Job,
             context::{Context, ContextData},
+            error::JobError,
             pending::PendingJob,
             running::RunningJob,
         },
@@ -30,7 +31,7 @@ pub struct OnFailRunnerInput {
     job: Job,
     pending_job: PendingJob,
     running_job: RunningJob,
-    error: job::error::Error,
+    error: JobError,
 }
 
 impl OnFailRunnerInput {
@@ -38,7 +39,7 @@ impl OnFailRunnerInput {
         job: Job,
         pending_job: PendingJob,
         running_job: RunningJob,
-        error: job::error::Error,
+        error: JobError,
     ) -> Self {
         Self {
             job,
@@ -93,7 +94,7 @@ impl<TData: ContextData> OnFailRunner<TData> {
             input.error.clone(),
         );
 
-        self.storage.failed_job_repo().add(failed_job).await?;
+        self.storage.failed_run_repo().add(failed_job).await?;
 
         let job_actions = self
             .job_actions_registry

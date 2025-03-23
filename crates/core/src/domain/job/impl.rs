@@ -1,5 +1,6 @@
 use super::{
     context::{Context, ContextData},
+    error::JobResult,
     report::Report,
 };
 use async_trait::async_trait;
@@ -32,7 +33,7 @@ pub trait JobImpl<TData: ContextData>:
     Serialize + DeserializeOwned + Sized + Send + Sync + 'static
 {
     fn name() -> JobImplName;
-    async fn run(&self, context: Context<TData>) -> super::error::Result<Report>;
+    async fn run(&self, context: Context<TData>) -> JobResult<Report>;
     async fn on_fail(&self, context: Context<TData>);
     async fn on_success(&self, context: Context<TData>);
 }
