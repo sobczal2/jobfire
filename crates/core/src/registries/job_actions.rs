@@ -71,26 +71,18 @@ impl<TData: ContextData> Clone for JobActions<TData> {
 impl<TData: ContextData> JobActions<TData> {
     pub async fn run(
         &self,
-        serialized_job_impl: SerializedJobImpl,
-        job_context: Context<TData>,
+        r#impl: SerializedJobImpl,
+        context: Context<TData>,
     ) -> job::error::JobResult<Report> {
-        (self.run.clone())(serialized_job_impl, job_context).await
+        (self.run.clone())(r#impl, context).await
     }
 
-    pub async fn on_success(
-        &self,
-        serialized_job_impl: SerializedJobImpl,
-        job_context: Context<TData>,
-    ) {
-        (self.on_success.clone())(serialized_job_impl, job_context).await
+    pub async fn on_success(&self, r#impl: SerializedJobImpl, context: Context<TData>) {
+        (self.on_success.clone())(r#impl, context).await
     }
 
-    pub async fn on_fail(
-        &self,
-        serialized_job_impl: SerializedJobImpl,
-        job_context: Context<TData>,
-    ) {
-        (self.on_fail.clone())(serialized_job_impl, job_context).await
+    pub async fn on_fail(&self, r#impl: SerializedJobImpl, context: Context<TData>) {
+        (self.on_fail.clone())(r#impl, context).await
     }
 }
 

@@ -228,6 +228,13 @@ dependencies = [
 [[package]]
 name = "jobfire-ephemeral"
 version = "0.1.0"
+dependencies = [
+ "chrono",
+ "jobfire-core",
+ "serde",
+ "tokio",
+ "uuid",
+]
 
 [[package]]
 name = "jobfire-example-simple"
