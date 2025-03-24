@@ -11,6 +11,7 @@ use jobfire_core::{
     registries::{builders::JobActionsRegistryBuilder, job_actions::JobActionsRegistry},
     storage::{Storage, memory::MemoryStorage},
 };
+use jobfire_ephemeral::ephemeral_fn_registry::EphemeralFnRegistry;
 use serde::{Deserialize, Serialize};
 use simple_logger::SimpleLogger;
 use std::{ops::AddAssign, sync::Mutex};
@@ -75,8 +76,11 @@ async fn main() {
     let manager = JobManager::new_default(context_data, |builder| {
         builder.add_service(JobActionsRegistry::from(registry));
         builder.add_service(Storage::from(MemoryStorage::default()));
+        builder.add_service_unchecked(EphemeralFnRegistry::new(Default::default()));
     })
     .unwrap();
+
+    manager.
 
     let now = Utc::now();
 
