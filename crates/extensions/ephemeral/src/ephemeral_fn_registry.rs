@@ -96,6 +96,14 @@ pub struct EphemeralFnRegistry<TData: ContextData> {
     inner: Arc<RwLock<EphemeralFnRegistryInner<TData>>>,
 }
 
+impl<TData: ContextData> Clone for EphemeralFnRegistry<TData> {
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.clone(),
+        }
+    }
+}
+
 pub struct EphemeralFnRegistryInner<TData: ContextData> {
     ephemeral_actions_map: HashMap<EphemeralJobId, EphemeralActions<TData>>,
 }

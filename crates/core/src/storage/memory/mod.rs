@@ -1,8 +1,6 @@
 use job::{MemoryJobRepo, pending::MemoryPendingJobRepo, running::MemoryRunningJobRepo};
 use run::{failed::MemoryFailedRunRepo, successful::MemorySuccessfulRunRepo};
 
-use crate::{builders::job_manager::JobManagerBuilder, domain::job::context::ContextData};
-
 use super::Storage;
 
 pub mod job;
@@ -26,15 +24,5 @@ impl From<MemoryStorage> for Storage {
             Box::new(value.successful_run_repo),
             Box::new(value.failed_run_repo),
         )
-    }
-}
-
-pub trait WithMemoryStorage {
-    fn with_memory_storage(&self) -> Self;
-}
-
-impl<TData: ContextData> WithMemoryStorage for JobManagerBuilder<TData> {
-    fn with_memory_storage(&self) -> Self {
-        self.with_storage(MemoryStorage::default())
     }
 }

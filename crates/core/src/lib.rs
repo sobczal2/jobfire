@@ -1,4 +1,3 @@
-pub mod builders;
 pub mod domain;
 pub mod managers;
 pub mod registries;

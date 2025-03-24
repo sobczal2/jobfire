@@ -13,7 +13,9 @@ use crate::{
         run::successful::SuccessfulRun,
     },
     registries::job_actions::JobActionsRegistry,
+    services::verify::{ServiceMissing, VerifyService},
     storage::{self, Storage},
+    verify_services,
 };
 
 #[derive(Error, Debug)]
@@ -48,32 +50,30 @@ impl OnSuccessRunnerInput {
 }
 
 pub struct OnSuccessRunner<TData: ContextData> {
-    storage: Storage,
     context: Context<TData>,
-    job_actions_registry: JobActionsRegistry<TData>,
+}
+
+impl<TData: ContextData> VerifyService for OnSuccessRunner<TData> {
+    fn verify(
+        &self,
+        services: &crate::services::Services,
+    ) -> std::result::Result<(), ServiceMissing> {
+        verify_services!(services, JobActionsRegistry<TData>, Storage);
+        Ok(())
+    }
 }
 
 impl<TData: ContextData> Clone for OnSuccessRunner<TData> {
     fn clone(&self) -> Self {
         Self {
-            storage: self.storage.clone(),
             context: self.context.clone(),
-            job_actions_registry: self.job_actions_registry.clone(),
         }
     }
 }
 
 impl<TData: ContextData> OnSuccessRunner<TData> {
-    pub fn new(
-        storage: Storage,
-        context: Context<TData>,
-        job_actions_registry: JobActionsRegistry<TData>,
-    ) -> Self {
-        Self {
-            storage,
-            context,
-            job_actions_registry,
-        }
+    pub fn new(context: Context<TData>) -> Self {
+        Self { context }
     }
 
     pub async fn run(&self, input: &OnSuccessRunnerInput) {
@@ -83,7 +83,7 @@ impl<TData: ContextData> OnSuccessRunner<TData> {
     }
 
     async fn run_internal(&self, input: &OnSuccessRunnerInput) -> Result<()> {
-        let successful_job = SuccessfulRun::new(
+        let successful_run = SuccessfulRun::new(
             *input.running_job.run_id(),
             *input.job.id(),
             *input.pending_job.scheduled_at(),
@@ -91,13 +91,15 @@ impl<TData: ContextData> OnSuccessRunner<TData> {
             input.report.clone(),
         );
 
-        self.storage
+        self.context
+            .get_required_service::<Storage>()
             .successful_run_repo()
-            .add(successful_job)
+            .add(successful_run)
             .await?;
 
         let job_actions = self
-            .job_actions_registry
+            .context
+            .get_required_service::<JobActionsRegistry<TData>>()
             .get(input.job.r#impl().name())
             .ok_or(Error::JobActionsNotFound)?;
 

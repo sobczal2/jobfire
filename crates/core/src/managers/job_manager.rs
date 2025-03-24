@@ -1,31 +1,31 @@
 use crate::{
-    builders::{Builder, job_manager::JobManagerBuilder, job_scheduler::JobSchedulerBuilder},
     domain::job::{
         Job,
         context::{Context, ContextData},
         id::JobId,
         r#impl::JobImpl,
-        scheduler::{self, JobScheduler},
     },
-    runners::job::JobRunner,
-    services::Services,
+    runners::{job::JobRunner, on_fail::OnFailRunner, on_success::OnSuccessRunner},
+    services::{Services, verify::ServiceMissing},
     storage::{self, Storage},
     util::r#async::poll_predicate,
+    verify_services,
     workers::job::{JobWorker, JobWorkerHandle, JobWorkerSettings, State},
 };
 use chrono::{DateTime, Duration, Utc};
-use std::sync::Arc;
 use thiserror::Error;
-use tokio::{sync::RwLock, time::interval};
+use tokio::time::interval;
 
-#[derive(Debug, Error)]
+use super::job_scheduler::{self, JobScheduler};
+
+#[derive(Error, Debug)]
 pub enum Error {
     #[error("stop failed")]
     StopFailed,
     #[error("storage error: {0}")]
     Storage(#[from] storage::error::Error),
     #[error("scheduler error: {0}")]
-    Scheduler(#[from] scheduler::Error),
+    Scheduler(#[from] job_scheduler::Error),
     #[error("failed to build a job")]
     JobBuildFailed,
 }
@@ -35,35 +35,60 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[allow(dead_code)]
 pub struct JobManager<TData: ContextData> {
     context: Context<TData>,
-    services: Services,
-    storage: Storage,
-    job_runner: JobRunner<TData>,
-    job_worker_settings: JobWorkerSettings,
     job_worker_handle: JobWorkerHandle,
-    job_scheduler: Arc<dyn JobScheduler>,
 }
 
 impl<TData: ContextData> JobManager<TData> {
-    pub fn start(
-        context: Context<TData>,
-        services: Services,
-        storage: Storage,
-        job_runner: JobRunner<TData>,
-        job_worker_settings: JobWorkerSettings,
-        job_scheduler: Arc<dyn JobScheduler>,
-    ) -> Self {
+    pub fn new_default<B>(data: TData, builder: B) -> std::result::Result<Self, ServiceMissing>
+    where
+        B: FnOnce(&Services),
+    {
+        let services = Services::default();
+        let context = Context::new(data.into(), services.clone());
+        add_default_services(&context);
+        builder(&services);
+        Self::verify(&services)?;
+        services.verify()?;
+
+        Ok(Self::start(context))
+    }
+
+    pub fn new_empty<B>(data: TData, builder: B) -> std::result::Result<Self, ServiceMissing>
+    where
+        B: FnOnce(&Services),
+    {
+        let services = Services::default();
+        let context = Context::new(data.into(), services.clone());
+        builder(&services);
+        Self::verify(&services)?;
+        services.verify()?;
+
+        Ok(Self::start(context))
+    }
+
+    fn verify(services: &Services) -> std::result::Result<(), ServiceMissing> {
+        verify_services!(
+            services,
+            JobWorkerSettings,
+            Storage,
+            JobRunner<TData>,
+            JobScheduler
+        );
+
+        Ok(())
+    }
+
+    fn start(context: Context<TData>) -> Self {
+        let job_worker_settings = context.get_required_service::<JobWorkerSettings>();
+        let storage = context.get_required_service::<Storage>();
+        let job_runner = context.get_required_service::<JobRunner<TData>>();
         let job_worker = JobWorker::new(job_worker_settings, storage.clone(), job_runner.clone());
         let job_worker_handle = job_worker.start();
 
         log::info!("JobfireManager started");
         Self {
             context,
-            services,
-            storage,
-            job_runner,
-            job_worker_settings,
             job_worker_handle,
-            job_scheduler,
         }
     }
 
@@ -86,24 +111,6 @@ impl<TData: ContextData> JobManager<TData> {
         Ok(())
     }
 
-    pub fn basic_builder(context_data: TData) -> JobManagerBuilder<TData> {
-        let builder = JobManagerBuilder::default();
-        builder.with_job_worker_settings(JobWorkerSettings::default());
-        builder.with_context_data(context_data);
-        builder.with_job_scheduler_factory(Box::new(|storage| {
-            let builder = JobSchedulerBuilder::default();
-            builder.with_storage(storage);
-            builder.build().unwrap()
-        }));
-        builder
-    }
-
-    pub fn builder() -> JobManagerBuilder<TData> {
-        JobManagerBuilder::default()
-    }
-}
-
-impl<TData: ContextData> JobManager<TData> {
     pub async fn schedule(
         &self,
         job_impl: impl JobImpl<TData>,
@@ -111,12 +118,20 @@ impl<TData: ContextData> JobManager<TData> {
     ) -> Result<JobId> {
         let job = Job::from_impl(job_impl).map_err(|_| Error::JobBuildFailed)?;
         let job_id = *job.id();
-        self.job_scheduler.schedule(job, at).await?;
+
+        self.context
+            .get_required_service::<JobScheduler>()
+            .schedule(job, at)
+            .await?;
+
         Ok(job_id)
     }
 
     pub async fn cancel(&self, job_id: &JobId) -> Result<()> {
-        self.job_scheduler.cancel(job_id).await?;
+        self.context
+            .get_required_service::<JobScheduler>()
+            .cancel(job_id)
+            .await?;
         Ok(())
     }
 
@@ -125,15 +140,19 @@ impl<TData: ContextData> JobManager<TData> {
         job_id: &JobId,
         new_scheduled_at: DateTime<chrono::Utc>,
     ) -> Result<()> {
-        self.job_scheduler
+        self.context
+            .get_required_service::<JobScheduler>()
             .reschedule(job_id, new_scheduled_at)
             .await?;
         Ok(())
     }
 }
 
-impl<TData: ContextData> JobManager<TData> {
-    pub fn get_service<T: 'static>(&self) -> Option<&T> {
-        self.services.get_service()
-    }
+fn add_default_services<TData: ContextData>(context: &Context<TData>) {
+    let services = context.services();
+    services.add_service_unchecked(JobWorkerSettings::default());
+    services.add_service(JobRunner::new(context.clone()));
+    services.add_service(OnSuccessRunner::new(context.clone()));
+    services.add_service(OnFailRunner::new(context.clone()));
+    services.add_service(JobScheduler::new(services.clone()));
 }

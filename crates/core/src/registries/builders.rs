@@ -3,16 +3,13 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use crate::{
-    domain::job::{
-        self,
-        context::{Context, ContextData},
-        r#impl::{JobImpl, JobImplName, SerializedJobImpl},
-    },
-    registries::job_actions::{JobActions, JobActionsRegistry, OnFailFn, OnSuccessFn, RunFn},
+use crate::domain::job::{
+    context::{Context, ContextData},
+    error::JobError,
+    r#impl::{JobImpl, JobImplName, SerializedJobImpl},
 };
 
-use super::Builder;
+use super::job_actions::{JobActions, JobActionsRegistry, OnFailFn, OnSuccessFn, RunFn};
 
 pub struct JobActionsRegistryBuilder<TData: ContextData> {
     inner: Arc<Mutex<JobActionsRegistryBuilderInner<TData>>>,
@@ -46,21 +43,14 @@ impl<TData: ContextData> Default for JobActionsRegistryBuilderInner<TData> {
     }
 }
 
-impl<TData: ContextData> Builder<JobActionsRegistry<TData>> for JobActionsRegistryBuilder<TData> {
-    fn build(self) -> super::Result<JobActionsRegistry<TData>> {
-        let inner = self.inner.lock().unwrap();
-        Ok(JobActionsRegistry::new(inner.job_actions_map.clone()))
-    }
-}
-
 impl<TData: ContextData> JobActionsRegistryBuilder<TData> {
-    pub fn register<TJobImpl: JobImpl<TData>>(&mut self) {
+    pub fn register<TJobImpl: JobImpl<TData>>(&mut self) -> Self {
         let run: RunFn<TData> = Arc::new(
             |serialized_job_impl: SerializedJobImpl, job_context: Context<TData>| {
                 Box::pin(async move {
                     let job_impl = serialized_job_impl
                         .deserialize::<TData, TJobImpl>()
-                        .map_err(|_| job::error::JobError::JobImplBuildFailed);
+                        .map_err(|_| JobError::JobImplBuildFailed);
                     match job_impl {
                         Ok(job_impl) => job_impl.run(job_context).await,
                         Err(e) => {
@@ -77,7 +67,7 @@ impl<TData: ContextData> JobActionsRegistryBuilder<TData> {
                 Box::pin(async move {
                     let job_impl = serialized_job_impl
                         .deserialize::<TData, TJobImpl>()
-                        .map_err(|_| job::error::JobError::JobImplBuildFailed);
+                        .map_err(|_| JobError::JobImplBuildFailed);
                     match job_impl {
                         Ok(job_impl) => job_impl.on_success(job_context).await,
                         Err(e) => {
@@ -93,7 +83,7 @@ impl<TData: ContextData> JobActionsRegistryBuilder<TData> {
                 Box::pin(async move {
                     let job_impl = serialized_job_impl
                         .deserialize::<TData, TJobImpl>()
-                        .map_err(|_| job::error::JobError::JobImplBuildFailed);
+                        .map_err(|_| JobError::JobImplBuildFailed);
                     match job_impl {
                         Ok(job_impl) => job_impl.on_fail(job_context).await,
                         Err(e) => {
@@ -109,5 +99,21 @@ impl<TData: ContextData> JobActionsRegistryBuilder<TData> {
             .unwrap()
             .job_actions_map
             .insert(TJobImpl::name(), JobActions::new(run, on_success, on_fail));
+
+        self.clone()
+    }
+}
+
+impl<TData: ContextData> From<JobActionsRegistryBuilder<TData>> for JobActionsRegistry<TData> {
+    fn from(value: JobActionsRegistryBuilder<TData>) -> Self {
+        JobActionsRegistry::new(
+            value
+                .inner
+                .lock()
+                .unwrap()
+                .job_actions_map
+                .drain()
+                .collect(),
+        )
     }
 }

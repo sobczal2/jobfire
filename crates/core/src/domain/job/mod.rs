@@ -13,7 +13,6 @@ pub mod r#impl;
 pub mod pending;
 pub mod report;
 pub mod running;
-pub mod scheduler;
 
 #[derive(Error, Debug)]
 pub enum Error {

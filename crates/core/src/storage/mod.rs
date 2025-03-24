@@ -8,10 +8,21 @@ use job::{JobRepo, PendingJobRepo, RunningJobRepo};
 use run::{FailedRunRepo, SuccessfulRunRepo};
 use std::sync::Arc;
 
+use crate::services::verify::VerifyService;
+
 #[derive(Clone, Getters)]
 #[getset(get = "pub")]
 pub struct Storage {
     inner: Arc<StorageInner>,
+}
+
+impl VerifyService for Storage {
+    fn verify(
+        &self,
+        _services: &crate::services::Services,
+    ) -> Result<(), crate::services::verify::ServiceMissing> {
+        Ok(())
+    }
 }
 
 struct StorageInner {

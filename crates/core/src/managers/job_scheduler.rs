@@ -1,65 +1,85 @@
-use async_trait::async_trait;
 use chrono::{DateTime, Utc};
+use thiserror::Error;
 
 use crate::{
-    domain::job::{
-        self,
-        id::JobId,
-        pending::PendingJob,
-        scheduler::{self, JobScheduler},
+    domain::job::{self, id::JobId, pending::PendingJob},
+    services::{
+        Services,
+        verify::{ServiceMissing, VerifyService},
     },
     storage::{self, Storage},
+    verify_services,
 };
 
-#[derive(Clone)]
-pub struct SimpleJobScheduler {
-    storage: Storage,
+#[derive(Error, Debug)]
+pub enum Error {
+    #[error("storage error: {0}")]
+    Storage(#[from] storage::error::Error),
+    #[error("job not found")]
+    JobNotFound,
+    #[error("already scheduled")]
+    AlreadyScheduled,
 }
 
-impl SimpleJobScheduler {
-    pub fn new(storage: Storage) -> Self {
-        Self { storage }
+pub type Result<T> = std::result::Result<T, Error>;
+
+#[derive(Clone)]
+pub struct JobScheduler {
+    services: Services,
+}
+
+impl JobScheduler {
+    pub fn new(services: Services) -> Self {
+        Self { services }
     }
 }
 
-#[async_trait]
-impl JobScheduler for SimpleJobScheduler {
-    async fn schedule(&self, job: job::Job, scheduled_at: DateTime<Utc>) -> scheduler::Result<()> {
+impl VerifyService for JobScheduler {
+    fn verify(&self, services: &Services) -> std::result::Result<(), ServiceMissing> {
+        verify_services!(services, Storage);
+        Ok(())
+    }
+}
+
+impl JobScheduler {
+    pub async fn schedule(&self, job: job::Job, scheduled_at: DateTime<Utc>) -> Result<()> {
+        let storage = self.services.get_required_service::<Storage>();
+
         let pending_job = PendingJob::new(*job.id(), scheduled_at);
-        let existing_job = self.storage.job_repo().get(job.id()).await?;
+        let existing_job = storage.job_repo().get(job.id()).await?;
         if existing_job.is_some() {
-            return Err(scheduler::Error::AlreadyScheduled);
+            return Err(Error::AlreadyScheduled);
         }
 
-        self.storage.job_repo().add(job).await?;
-        self.storage.pending_job_repo().add(pending_job).await?;
+        storage.job_repo().add(job).await?;
+        storage.pending_job_repo().add(pending_job).await?;
         Ok(())
     }
 
-    async fn cancel(&self, job_id: &JobId) -> scheduler::Result<()> {
+    pub async fn cancel(&self, job_id: &JobId) -> Result<()> {
+        let storage = self.services.get_required_service::<Storage>();
+
         // TODO add cancel queue
-        match self.storage.pending_job_repo().delete(job_id).await {
+        match storage.pending_job_repo().delete(job_id).await {
             Ok(_) => Ok(()),
             Err(error) => match error {
-                storage::error::Error::NotFound => Err(scheduler::Error::JobNotFound),
-                _ => Err(scheduler::Error::Storage(error)),
+                storage::error::Error::NotFound => Err(Error::JobNotFound),
+                _ => Err(Error::Storage(error)),
             },
         }
     }
 
-    async fn reschedule(
-        &self,
-        job_id: &JobId,
-        new_scheduled_at: DateTime<Utc>,
-    ) -> scheduler::Result<()> {
-        let scheduled_job = self.storage.pending_job_repo().get(job_id).await?;
+    pub async fn reschedule(&self, job_id: &JobId, new_scheduled_at: DateTime<Utc>) -> Result<()> {
+        let storage = self.services.get_required_service::<Storage>();
+
+        let scheduled_job = storage.pending_job_repo().get(job_id).await?;
         if scheduled_job.is_none() {
-            return Err(scheduler::Error::JobNotFound);
+            return Err(Error::JobNotFound);
         }
         let mut scheduled_job = scheduled_job.unwrap();
         scheduled_job.reschedule(new_scheduled_at);
-        self.storage.pending_job_repo().delete(job_id).await?;
-        self.storage.pending_job_repo().add(scheduled_job).await?;
+        storage.pending_job_repo().delete(job_id).await?;
+        storage.pending_job_repo().add(scheduled_job).await?;
         Ok(())
     }
 }

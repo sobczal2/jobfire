@@ -4,11 +4,14 @@ use std::{collections::HashMap, pin::Pin, sync::Arc};
 
 use thiserror::Error;
 
-use crate::domain::job::{
-    self,
-    context::{Context, ContextData},
-    r#impl::{JobImplName, SerializedJobImpl},
-    report::Report,
+use crate::{
+    domain::job::{
+        self,
+        context::{Context, ContextData},
+        r#impl::{JobImplName, SerializedJobImpl},
+        report::Report,
+    },
+    services::verify::VerifyService,
 };
 
 pub type RunFn<TData: ContextData> = Arc<
@@ -88,6 +91,15 @@ impl<TData: ContextData> JobActions<TData> {
 
 pub struct JobActionsRegistry<TData: ContextData> {
     inner: Arc<JobActionsRegistryInner<TData>>,
+}
+
+impl<TData: ContextData> VerifyService for JobActionsRegistry<TData> {
+    fn verify(
+        &self,
+        services: &crate::services::Services,
+    ) -> std::result::Result<(), crate::services::verify::ServiceMissing> {
+        Ok(())
+    }
 }
 
 impl<TData: ContextData> Clone for JobActionsRegistry<TData> {

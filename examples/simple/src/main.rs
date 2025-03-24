@@ -1,7 +1,6 @@
 use chrono::{Duration, Utc};
 use jobfire_core::{
     Uuid, async_trait,
-    builders::Builder,
     domain::job::{
         context::{Context, ContextData},
         error::JobResult,
@@ -9,9 +8,9 @@ use jobfire_core::{
         report::Report,
     },
     managers::job_manager::JobManager,
-    storage::memory::WithMemoryStorage,
+    registries::{builders::JobActionsRegistryBuilder, job_actions::JobActionsRegistry},
+    storage::{Storage, memory::MemoryStorage},
 };
-use jobfire_ephemeral::{AddEphemeralExtension, ScheduleEphemeralJob};
 use serde::{Deserialize, Serialize};
 use simple_logger::SimpleLogger;
 use std::{ops::AddAssign, sync::Mutex};
@@ -71,20 +70,13 @@ async fn main() {
         counter: Mutex::new(0),
     };
 
-    let manager = JobManager::basic_builder(context_data)
-        .with_memory_storage()
-        .add_ephemeral_extension()
-        .register_job_impl::<SimpleJobImpl>()
-        .build()
-        .unwrap();
+    let registry = JobActionsRegistryBuilder::default().register::<SimpleJobImpl>();
 
-    manager
-        .schedule_ephemeral_job(async |_| {
-            log::info!("hello from ephemeral job");
-            Ok(Report::new())
-        })
-        .await
-        .unwrap();
+    let manager = JobManager::new_default(context_data, |builder| {
+        builder.add_service(JobActionsRegistry::from(registry));
+        builder.add_service(Storage::from(MemoryStorage::default()));
+    })
+    .unwrap();
 
     let now = Utc::now();
 
@@ -92,318 +84,6 @@ async fn main() {
         (
             SimpleJobImpl { xd: Uuid::now_v7() },
             now - Duration::seconds(10),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
-        ),
-        (
-            SimpleJobImpl { xd: Uuid::now_v7() },
-            now + Duration::seconds(0),
         ),
         (
             SimpleJobImpl { xd: Uuid::now_v7() },

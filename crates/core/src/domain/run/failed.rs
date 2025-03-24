@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use getset::Getters;
 use serde::{Deserialize, Serialize};
 
-use crate::domain::job::{Error, error::JobError, id::JobId};
+use crate::domain::job::{error::JobError, id::JobId};
 
 use super::id::RunId;
 
