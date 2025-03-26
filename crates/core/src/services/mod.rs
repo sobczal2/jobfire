@@ -107,7 +107,7 @@ impl<TData: ContextData> Services<TData> {
 
     pub fn verify(&self) -> Result<(), ServiceMissing> {
         for vs in self.inner.read().unwrap().verify_services.iter() {
-            vs.verify(&self)?;
+            vs.verify(self)?;
         }
         Ok(())
     }

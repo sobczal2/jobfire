@@ -96,7 +96,7 @@ pub struct JobActionsRegistry<TData: ContextData> {
 impl<TData: ContextData> VerifyService<TData> for JobActionsRegistry<TData> {
     fn verify(
         &self,
-        services: &crate::services::Services<TData>,
+        _services: &crate::services::Services<TData>,
     ) -> std::result::Result<(), crate::services::verify::ServiceMissing> {
         Ok(())
     }
