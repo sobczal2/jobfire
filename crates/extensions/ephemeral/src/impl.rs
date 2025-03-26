@@ -23,6 +23,12 @@ impl EphemeralJobId {
     }
 }
 
+impl Default for EphemeralJobId {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct EphemeralJobImpl {
     ephemeral_job_id: EphemeralJobId,
@@ -31,6 +37,12 @@ pub struct EphemeralJobImpl {
 impl EphemeralJobImpl {
     pub fn new(ephemeral_job_id: EphemeralJobId) -> Self {
         Self { ephemeral_job_id }
+    }
+
+    async fn remove_from_registry<TData: ContextData>(&self, registry: EphemeralFnRegistry<TData>) {
+        if registry.remove(&self.ephemeral_job_id).await.is_err() {
+            log::error!("failed to remove EphemeralActions from EphemeralFnRegistry");
+        }
     }
 }
 
@@ -41,12 +53,11 @@ impl<TData: ContextData> JobImpl<TData> for EphemeralJobImpl {
     }
 
     async fn run(&self, context: Context<TData>) -> JobResult<Report> {
-        let run_fn = context
+        let registry = context
             .services()
-            .get_service::<EphemeralFnRegistry<TData>>()
-            .unwrap()
-            .get_run_fn(&self.ephemeral_job_id)
-            .await;
+            .get_required_service::<EphemeralFnRegistry<TData>>();
+
+        let run_fn = registry.get_run_fn(&self.ephemeral_job_id).await;
 
         match run_fn {
             Some(run_fn) => (run_fn)(context).await,
@@ -55,12 +66,12 @@ impl<TData: ContextData> JobImpl<TData> for EphemeralJobImpl {
     }
 
     async fn on_success(&self, context: Context<TData>) {
-        let on_success_fn = context
+        let registry = context
             .services()
-            .get_service::<EphemeralFnRegistry<TData>>()
-            .unwrap()
-            .get_on_success_fn(&self.ephemeral_job_id)
-            .await;
+            .get_required_service::<EphemeralFnRegistry<TData>>();
+
+        let on_success_fn = registry.get_on_success_fn(&self.ephemeral_job_id).await;
+        self.remove_from_registry(registry).await;
 
         match on_success_fn {
             Some(on_success_fn) => (on_success_fn)(context).await,
@@ -69,12 +80,12 @@ impl<TData: ContextData> JobImpl<TData> for EphemeralJobImpl {
     }
 
     async fn on_fail(&self, context: Context<TData>) {
-        let on_fail_fn = context
+        let registry = context
             .services()
-            .get_service::<EphemeralFnRegistry<TData>>()
-            .unwrap()
-            .get_on_success_fn(&self.ephemeral_job_id)
-            .await;
+            .get_required_service::<EphemeralFnRegistry<TData>>();
+
+        let on_fail_fn = registry.get_on_success_fn(&self.ephemeral_job_id).await;
+        self.remove_from_registry(registry).await;
 
         match on_fail_fn {
             Some(on_fail_fn) => (on_fail_fn)(context).await,

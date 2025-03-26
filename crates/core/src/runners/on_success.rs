@@ -53,10 +53,10 @@ pub struct OnSuccessRunner<TData: ContextData> {
     context: Context<TData>,
 }
 
-impl<TData: ContextData> VerifyService for OnSuccessRunner<TData> {
+impl<TData: ContextData> VerifyService<TData> for OnSuccessRunner<TData> {
     fn verify(
         &self,
-        services: &crate::services::Services,
+        services: &crate::services::Services<TData>,
     ) -> std::result::Result<(), ServiceMissing> {
         verify_services!(services, JobActionsRegistry<TData>, Storage);
         Ok(())

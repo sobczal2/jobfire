@@ -1,5 +1,7 @@
-use job::{MemoryJobRepo, pending::MemoryPendingJobRepo, running::MemoryRunningJobRepo};
+use job::{pending::MemoryPendingJobRepo, running::MemoryRunningJobRepo, MemoryJobRepo};
 use run::{failed::MemoryFailedRunRepo, successful::MemorySuccessfulRunRepo};
+
+use crate::{domain::job::context::ContextData, services::Services};
 
 use super::Storage;
 
@@ -24,5 +26,17 @@ impl From<MemoryStorage> for Storage {
             Box::new(value.successful_run_repo),
             Box::new(value.failed_run_repo),
         )
+    }
+}
+
+pub trait AddMemoryStorageService<TData: ContextData> {
+    fn add_memory_storage(&self) -> Self;
+}
+
+impl<TData: ContextData> AddMemoryStorageService<TData> for Services<TData> {
+    fn add_memory_storage(&self) -> Self {
+        log::debug!("adding MemoryStorage as a service");
+        self.add_service(Storage::from(MemoryStorage::default()));
+        self.clone()
     }
 }

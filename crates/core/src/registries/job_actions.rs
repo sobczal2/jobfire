@@ -93,10 +93,10 @@ pub struct JobActionsRegistry<TData: ContextData> {
     inner: Arc<JobActionsRegistryInner<TData>>,
 }
 
-impl<TData: ContextData> VerifyService for JobActionsRegistry<TData> {
+impl<TData: ContextData> VerifyService<TData> for JobActionsRegistry<TData> {
     fn verify(
         &self,
-        services: &crate::services::Services,
+        services: &crate::services::Services<TData>,
     ) -> std::result::Result<(), crate::services::verify::ServiceMissing> {
         Ok(())
     }

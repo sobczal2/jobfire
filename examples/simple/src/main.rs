@@ -8,10 +8,10 @@ use jobfire_core::{
         report::Report,
     },
     managers::job_manager::JobManager,
-    registries::{builders::JobActionsRegistryBuilder, job_actions::JobActionsRegistry},
-    storage::{Storage, memory::MemoryStorage},
+    registries::builders::AddActionsRegistryService,
+    storage::memory::AddMemoryStorageService,
 };
-use jobfire_ephemeral::ephemeral_fn_registry::EphemeralFnRegistry;
+use jobfire_ephemeral::{AddEphemeralExtension, RegisterEphemeralJob, ScheduleEphemeralJob};
 use serde::{Deserialize, Serialize};
 use simple_logger::SimpleLogger;
 use std::{ops::AddAssign, sync::Mutex};
@@ -71,16 +71,26 @@ async fn main() {
         counter: Mutex::new(0),
     };
 
-    let registry = JobActionsRegistryBuilder::default().register::<SimpleJobImpl>();
-
     let manager = JobManager::new_default(context_data, |builder| {
-        builder.add_service(JobActionsRegistry::from(registry));
-        builder.add_service(Storage::from(MemoryStorage::default()));
-        builder.add_service_unchecked(EphemeralFnRegistry::new(Default::default()));
+        builder.add_job_actions_registry(|jr_builder| {
+            jr_builder.register::<SimpleJobImpl>();
+            jr_builder.register_ephemeral_job();
+        });
+        builder.add_memory_storage();
+        builder.add_ephemeral_extension();
     })
     .unwrap();
 
-    manager.
+    for _ in 0..100 {
+        let _job_id = manager
+            .schedule_simple_ephemeral_job_now(async |_| {
+                sleep(std::time::Duration::from_secs(11)).await;
+                log::info!("hello from ephemeral job");
+                Ok(Report::new())
+            })
+            .await
+            .unwrap();
+    }
 
     let now = Utc::now();
 

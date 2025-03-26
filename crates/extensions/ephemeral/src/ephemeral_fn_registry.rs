@@ -2,10 +2,13 @@
 
 use std::{collections::HashMap, pin::Pin, sync::Arc};
 
-use jobfire_core::domain::job::{
-    context::{Context, ContextData},
-    error::JobResult,
-    report::Report,
+use jobfire_core::{
+    domain::job::{
+        context::{Context, ContextData},
+        error::JobResult,
+        report::Report,
+    },
+    services::verify::VerifyService,
 };
 use thiserror::Error;
 use tokio::sync::RwLock;
@@ -50,24 +53,6 @@ impl<TData: ContextData> EphemeralActions<TData> {
     }
 }
 
-impl<TData: ContextData> From<EphemeralRunFn<TData>> for EphemeralActions<TData> {
-    fn from(value: EphemeralRunFn<TData>) -> Self {
-        Self::new(
-            value,
-            Arc::new(|_ctx| {
-                Box::pin(async {
-                    // Empty implementation - does nothing
-                })
-            }),
-            Arc::new(|_ctx| {
-                Box::pin(async {
-                    // Empty implementation - does nothing
-                })
-            }),
-        )
-    }
-}
-
 impl<TData: ContextData> Clone for EphemeralActions<TData> {
     fn clone(&self) -> Self {
         Self {
@@ -101,6 +86,21 @@ impl<TData: ContextData> Clone for EphemeralFnRegistry<TData> {
         Self {
             inner: self.inner.clone(),
         }
+    }
+}
+
+impl<TData: ContextData> Default for EphemeralFnRegistry<TData> {
+    fn default() -> Self {
+        Self::new(Default::default())
+    }
+}
+
+impl<TData: ContextData> VerifyService<TData> for EphemeralFnRegistry<TData> {
+    fn verify(
+        &self,
+        _services: &jobfire_core::services::Services<TData>,
+    ) -> std::result::Result<(), jobfire_core::services::verify::ServiceMissing> {
+        Ok(())
     }
 }
 

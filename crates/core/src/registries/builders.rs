@@ -3,10 +3,13 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use crate::domain::job::{
-    context::{Context, ContextData},
-    error::JobError,
-    r#impl::{JobImpl, JobImplName, SerializedJobImpl},
+use crate::{
+    domain::job::{
+        context::{Context, ContextData},
+        error::JobError,
+        r#impl::{JobImpl, JobImplName, SerializedJobImpl},
+    },
+    services::Services,
 };
 
 use super::job_actions::{JobActions, JobActionsRegistry, OnFailFn, OnSuccessFn, RunFn};
@@ -115,5 +118,24 @@ impl<TData: ContextData> From<JobActionsRegistryBuilder<TData>> for JobActionsRe
                 .drain()
                 .collect(),
         )
+    }
+}
+
+pub trait AddActionsRegistryService<TData: ContextData> {
+    fn add_job_actions_registry<B>(&self, builder: B) -> Self
+    where
+        B: FnOnce(&mut JobActionsRegistryBuilder<TData>);
+}
+
+impl<TData: ContextData> AddActionsRegistryService<TData> for Services<TData> {
+    fn add_job_actions_registry<B>(&self, builder: B) -> Self
+    where
+        B: FnOnce(&mut JobActionsRegistryBuilder<TData>),
+    {
+        log::debug!("adding JobActionsRegistry as a service");
+        let mut b = JobActionsRegistryBuilder::default();
+        builder(&mut b);
+        self.add_service_unchecked(JobActionsRegistry::from(b));
+        self.clone()
     }
 }

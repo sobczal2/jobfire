@@ -3,16 +3,19 @@ pub mod verify;
 use std::{
     any::{Any, TypeId},
     collections::HashMap,
+    marker::PhantomData,
     sync::{Arc, RwLock},
 };
 
 use verify::{ServiceMissing, VerifyService};
 
-pub struct Services {
-    inner: Arc<RwLock<ServicesInner>>,
+use crate::domain::job::context::ContextData;
+
+pub struct Services<TData: ContextData> {
+    inner: Arc<RwLock<ServicesInner<TData>>>,
 }
 
-impl Clone for Services {
+impl<TData: ContextData> Clone for Services<TData> {
     fn clone(&self) -> Self {
         Self {
             inner: self.inner.clone(),
@@ -20,26 +23,28 @@ impl Clone for Services {
     }
 }
 
-impl Default for Services {
+impl<TData: ContextData> Default for Services<TData> {
     fn default() -> Self {
         Self::new(Default::default(), Default::default())
     }
 }
 
-struct ServicesInner {
+struct ServicesInner<TData: ContextData> {
     map: HashMap<TypeId, Box<dyn Any + Send + Sync>>,
-    verify_services: Vec<Box<dyn VerifyService + Send + Sync>>,
+    verify_services: Vec<Box<dyn VerifyService<TData> + Send + Sync>>,
+    phantom_data: PhantomData<TData>,
 }
 
-impl Services {
+impl<TData: ContextData> Services<TData> {
     pub fn new(
         map: HashMap<TypeId, Box<dyn Any + Send + Sync>>,
-        verify_services: Vec<Box<dyn VerifyService + Send + Sync>>,
+        verify_services: Vec<Box<dyn VerifyService<TData> + Send + Sync>>,
     ) -> Self {
         Self {
             inner: Arc::new(RwLock::new(ServicesInner {
                 map,
                 verify_services,
+                phantom_data: Default::default(),
             })),
         }
     }
@@ -70,20 +75,26 @@ impl Services {
         self.get_service::<T>().is_some()
     }
 
-    pub fn add_service_unchecked<T: Clone + Send + Sync + 'static>(&self, service: T) {
+    pub fn add_service_unchecked<T: Clone + Send + Sync + 'static>(&self, service: T) -> Self {
         self.inner
             .write()
             .unwrap()
             .map
             .insert(TypeId::of::<T>(), Box::new(service));
+
+        self.clone()
     }
 
-    pub fn add_service<T: VerifyService + Clone + Send + Sync + 'static>(&self, service: T) {
+    pub fn add_service<T: VerifyService<TData> + Clone + Send + Sync + 'static>(
+        &self,
+        service: T,
+    ) -> Self {
         self.add_service_unchecked(service.clone());
         self.verify_service_on_build(service.clone());
+        self.clone()
     }
 
-    pub fn verify_service_on_build<T: VerifyService + Clone + Send + Sync + 'static>(
+    pub fn verify_service_on_build<T: VerifyService<TData> + Clone + Send + Sync + 'static>(
         &self,
         verify_service: T,
     ) {

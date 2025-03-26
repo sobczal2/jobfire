@@ -39,10 +39,10 @@ pub struct JobRunner<TData: ContextData> {
     context: Context<TData>,
 }
 
-impl<TData: ContextData> VerifyService for JobRunner<TData> {
+impl<TData: ContextData> VerifyService<TData> for JobRunner<TData> {
     fn verify(
         &self,
-        services: &crate::services::Services,
+        services: &crate::services::Services<TData>,
     ) -> std::result::Result<(), ServiceMissing> {
         verify_services!(
             services,

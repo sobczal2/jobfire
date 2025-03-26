@@ -28,6 +28,10 @@ pub enum Error {
     Scheduler(#[from] job_scheduler::Error),
     #[error("failed to build a job")]
     JobBuildFailed,
+    #[error("service missing: {0}")]
+    ServiceMissing(String),
+    #[error("internal error: {0}")]
+    InternalError(String),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -41,7 +45,7 @@ pub struct JobManager<TData: ContextData> {
 impl<TData: ContextData> JobManager<TData> {
     pub fn new_default<B>(data: TData, builder: B) -> std::result::Result<Self, ServiceMissing>
     where
-        B: FnOnce(&Services),
+        B: FnOnce(&Services<TData>),
     {
         let services = Services::default();
         let context = Context::new(data.into(), services.clone());
@@ -55,7 +59,7 @@ impl<TData: ContextData> JobManager<TData> {
 
     pub fn new_empty<B>(data: TData, builder: B) -> std::result::Result<Self, ServiceMissing>
     where
-        B: FnOnce(&Services),
+        B: FnOnce(&Services<TData>),
     {
         let services = Services::default();
         let context = Context::new(data.into(), services.clone());
@@ -66,13 +70,13 @@ impl<TData: ContextData> JobManager<TData> {
         Ok(Self::start(context))
     }
 
-    fn verify(services: &Services) -> std::result::Result<(), ServiceMissing> {
+    fn verify(services: &Services<TData>) -> std::result::Result<(), ServiceMissing> {
         verify_services!(
             services,
             JobWorkerSettings,
             Storage,
             JobRunner<TData>,
-            JobScheduler
+            JobScheduler<TData>
         );
 
         Ok(())
@@ -120,7 +124,7 @@ impl<TData: ContextData> JobManager<TData> {
         let job_id = *job.id();
 
         self.context
-            .get_required_service::<JobScheduler>()
+            .get_required_service::<JobScheduler<TData>>()
             .schedule(job, at)
             .await?;
 
@@ -129,7 +133,7 @@ impl<TData: ContextData> JobManager<TData> {
 
     pub async fn cancel(&self, job_id: &JobId) -> Result<()> {
         self.context
-            .get_required_service::<JobScheduler>()
+            .get_required_service::<JobScheduler<TData>>()
             .cancel(job_id)
             .await?;
         Ok(())
@@ -141,10 +145,14 @@ impl<TData: ContextData> JobManager<TData> {
         new_scheduled_at: DateTime<chrono::Utc>,
     ) -> Result<()> {
         self.context
-            .get_required_service::<JobScheduler>()
+            .get_required_service::<JobScheduler<TData>>()
             .reschedule(job_id, new_scheduled_at)
             .await?;
         Ok(())
+    }
+
+    pub fn context(&self) -> &Context<TData> {
+        &self.context
     }
 }
 
