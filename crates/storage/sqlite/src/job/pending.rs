@@ -23,7 +23,7 @@ impl SqlitePendingJobRepo {
         sqlx::query(
             format!(
                 "CREATE TABLE IF NOT EXISTS {} (job_id TEXT PRIMARY KEY, scheduled_at INTEGER)",
-                &settings.pending_job_repo_table_name,
+                &settings.pending_job_table_name(),
             )
             .as_str(),
         )
@@ -51,7 +51,7 @@ impl PendingJobRepo for SqlitePendingJobRepo {
         let result: Option<RGet> = sqlx::query_as(
             format!(
                 "SELECT scheduled_at FROM {} WHERE job_id = '$1'",
-                &self.settings.pending_job_repo_table_name
+                &self.settings.pending_job_table_name()
             )
             .as_str(),
         )
@@ -78,7 +78,7 @@ impl PendingJobRepo for SqlitePendingJobRepo {
         sqlx::query(
             format!(
                 "INSERT INTO {} (job_id, scheduled_at) VALUES ('$1', $2)",
-                &self.settings.pending_job_repo_table_name,
+                &self.settings.pending_job_table_name(),
             )
             .as_str(),
         )
