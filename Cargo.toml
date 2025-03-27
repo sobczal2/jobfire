@@ -1,8 +1,8 @@
 [workspace]
 members = [
-  "crates/core",
+   "crates/core",
   "crates/extensions/ephemeral",
-  "crates/extensions/recurring",
+  "crates/extensions/recurring", "crates/storage/sqlite",
   "examples/simple",
 ]
 resolver = "2"
@@ -22,3 +22,4 @@ getset = { version = "0.1.5" }
 quick-macros = { version = "0.1.2" }
 thiserror = { version = "2.0.12" }
 simple_logger = { version = "5.0.0" }
+sqlx = { version = "0.8", features = [ "runtime-tokio", "sqlite" ] }

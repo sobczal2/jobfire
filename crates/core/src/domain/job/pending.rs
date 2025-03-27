@@ -14,7 +14,7 @@ pub struct PendingJob {
     /// Reference to the original job's identifier.
     ///
     /// This links back to the original `Job` for which execution
-    /// has been scheduled.
+    /// has been scheduled. Unique.
     job_id: JobId,
 
     /// Timestamp when the job is scheduled to be executed.
@@ -25,7 +25,7 @@ pub struct PendingJob {
 }
 
 impl PendingJob {
-    pub(crate) fn new(job_id: JobId, scheduled_at: DateTime<Utc>) -> Self {
+    pub fn new(job_id: JobId, scheduled_at: DateTime<Utc>) -> Self {
         Self {
             job_id,
             scheduled_at,

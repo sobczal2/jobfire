@@ -47,7 +47,7 @@ impl JobImpl<SimpleContextData> for SimpleJobImpl {
     async fn run(&self, context: Context<SimpleContextData>) -> JobResult<Report> {
         let context = context.data();
         context.increment();
-        log::info!("Job number {} run", context.read());
+        log::info!("job number {} run", context.read());
         sleep(std::time::Duration::from_secs_f32(11f32)).await;
         Ok(Report::new())
     }

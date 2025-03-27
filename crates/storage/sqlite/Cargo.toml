@@ -1,0 +1,11 @@
+[package]
+name = "jobfire-storage-sqlite"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+jobfire-core.workspace = true
+sqlx.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+chrono.workspace = true
