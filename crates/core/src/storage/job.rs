@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 
 use crate::domain::job::{Job, id::JobId, pending::PendingJob, running::RunningJob};
 
@@ -110,7 +111,7 @@ pub trait PendingJobRepo: Send + Sync + 'static {
     /// * `Result<Option<PendingJob>>` - Returns the next scheduled pending job if available,
     ///   None if no jobs are scheduled, or an error if the operation failed. There is no guarantee
     ///   on order of retrieved jobs.
-    async fn pop_scheduled(&self) -> Result<Option<PendingJob>>;
+    async fn pop_scheduled(&self, now: DateTime<Utc>) -> Result<Option<PendingJob>>;
 }
 
 /// Repository interface for managing `RunningJob` entities.

@@ -1,4 +1,4 @@
-use chrono::Duration;
+use chrono::{Duration, Utc};
 use std::sync::Arc;
 use thiserror::Error;
 use tokio::{
@@ -176,7 +176,12 @@ impl<TData: ContextData> JobWorker<TData> {
         loop {
             interval.tick().await;
 
-            match self.storage.pending_job_repo().pop_scheduled().await? {
+            match self
+                .storage
+                .pending_job_repo()
+                .pop_scheduled(Utc::now())
+                .await?
+            {
                 Some(pending_job) => return Ok(pending_job),
                 None => continue,
             }

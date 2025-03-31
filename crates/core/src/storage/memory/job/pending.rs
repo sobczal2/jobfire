@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use tokio::sync::RwLock;
 
 use crate::{
@@ -62,14 +62,17 @@ impl PendingJobRepo for MemoryPendingJobRepo {
         }
     }
 
-    async fn pop_scheduled(&self) -> crate::storage::error::Result<Option<PendingJob>> {
+    async fn pop_scheduled(
+        &self,
+        now: DateTime<Utc>,
+    ) -> crate::storage::error::Result<Option<PendingJob>> {
         let existing_index = self
             .elements
             .read()
             .await
             .iter()
             .enumerate()
-            .find(|(_, job)| *job.scheduled_at() < Utc::now())
+            .find(|(_, job)| *job.scheduled_at() < now)
             .map(|(i, _)| i);
 
         match existing_index {

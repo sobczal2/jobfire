@@ -59,7 +59,7 @@ impl Job {
     /// Function to create a job from custom job implementation
     pub fn from_impl<TData: ContextData>(job_impl: impl JobImpl<TData>) -> Result<Self> {
         Ok(Self::new(
-            JobId::new(),
+            JobId::default(),
             Utc::now(),
             SerializedJobImpl::from_job_impl(r#job_impl).map_err(|_| Error::BuildingJobFailed)?,
         ))
