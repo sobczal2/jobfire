@@ -4,7 +4,7 @@ use jobfire_core::{
     domain::job::{id::JobId, pending::PendingJob},
     storage::{self, job::PendingJobRepo},
 };
-use sqlx::{SqlitePool, prelude::*};
+use sqlx::SqlitePool;
 
 use crate::SqliteStorageSettings;
 
