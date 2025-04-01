@@ -8,6 +8,16 @@ use uuid::Uuid;
 #[derive(Clone, Copy, Serialize, Deserialize, Debug, PartialEq, Eq, Hash)]
 pub struct JobId(Uuid);
 
+impl JobId {
+    pub fn new(uuid: Uuid) -> Self {
+        Self(uuid)
+    }
+
+    pub fn value(&self) -> &Uuid {
+        &self.0
+    }
+}
+
 impl Default for JobId {
     fn default() -> Self {
         Self::new(Uuid::now_v7())
@@ -32,16 +42,6 @@ impl FromStr for JobId {
             Ok(uuid) => Ok(Self::new(uuid)),
             Err(_) => Err(JobIdParseError),
         }
-    }
-}
-
-impl JobId {
-    pub fn new(uuid: Uuid) -> Self {
-        Self(uuid)
-    }
-
-    pub fn value(&self) -> &Uuid {
-        &self.0
     }
 }
 

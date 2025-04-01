@@ -13,17 +13,17 @@ use super::id::JobId;
 #[derive(Clone, Getters, Serialize, Deserialize)]
 #[getset(get = "pub")]
 pub struct RunningJob {
-    /// Unique identifier for this specific execution of the job.
-    ///
-    /// Both `run_id` and `job_id` are unique. The `run_id` identifies
-    /// a specific execution, while `job_id` identifies the job definition.
-    run_id: RunId,
-
     /// Reference to the original job's identifier.
     ///
     /// This links back to the original `Job` from which this running
     /// instance was created.
     job_id: JobId,
+
+    /// Unique identifier for this specific execution of the job.
+    ///
+    /// Both `run_id` and `job_id` are unique. The `run_id` identifies
+    /// a specific execution, while `job_id` identifies the job definition.
+    run_id: RunId,
 
     /// Timestamp when the job execution started.
     ///
@@ -32,7 +32,7 @@ pub struct RunningJob {
 }
 
 impl RunningJob {
-    pub fn new(run_id: RunId, job_id: JobId, started_at: DateTime<Utc>) -> Self {
+    pub fn new(job_id: JobId, run_id: RunId, started_at: DateTime<Utc>) -> Self {
         Self {
             run_id,
             job_id,

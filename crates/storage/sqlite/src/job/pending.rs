@@ -6,7 +6,7 @@ use jobfire_core::{
 };
 use sqlx::SqlitePool;
 
-use crate::SqliteStorageSettings;
+use crate::{SqliteStorageSettings, map_sqlx_error};
 
 pub struct SqlitePendingJobRepo {
     pool: SqlitePool,
@@ -20,23 +20,14 @@ impl SqlitePendingJobRepo {
     }
 
     async fn init(pool: &SqlitePool, settings: &SqliteStorageSettings) -> crate::Result<()> {
-        sqlx::query(
-            format!(
-                "CREATE TABLE IF NOT EXISTS {} (job_id TEXT PRIMARY KEY, scheduled_at INTEGER)",
-                &settings.pending_job_table_name(),
-            )
-            .as_str(),
-        )
+        sqlx::query(&format!(
+            "CREATE TABLE IF NOT EXISTS {} (job_id TEXT NOT NULL PRIMARY KEY, scheduled_at INTEGER NOT NULL)",
+            settings.pending_job_table_name,
+        ))
         .execute(pool)
         .await?;
 
         Ok(())
-    }
-
-    fn map_sqlx_error(error: sqlx::Error) -> storage::error::Error {
-        storage::error::Error::Custom {
-            message: error.to_string(),
-        }
     }
 }
 
@@ -50,17 +41,18 @@ impl PendingJobRepo for SqlitePendingJobRepo {
 
         let result: Option<RGet> = sqlx::query_as(&format!(
             "SELECT scheduled_at FROM {} WHERE job_id = $1",
-            &self.settings.pending_job_table_name()
+            self.settings.pending_job_table_name,
         ))
         .bind(job_id.to_string())
         .fetch_optional(&self.pool)
         .await
-        .map_err(Self::map_sqlx_error)?;
+        .map_err(map_sqlx_error)?;
 
         match result {
             Some(result) => Ok(Some(PendingJob::new(
                 *job_id,
-                DateTime::from_timestamp_millis(result.scheduled_at).unwrap(),
+                DateTime::from_timestamp_millis(result.scheduled_at)
+                    .ok_or(storage::error::Error::Internal)?,
             ))),
             None => Ok(None),
         }
@@ -74,13 +66,13 @@ impl PendingJobRepo for SqlitePendingJobRepo {
 
         sqlx::query(&format!(
             "INSERT INTO {} (job_id, scheduled_at) VALUES ($1, $2)",
-            &self.settings.pending_job_table_name(),
+            self.settings.pending_job_table_name,
         ))
         .bind(job.job_id().to_string())
         .bind(job.scheduled_at().timestamp_millis())
         .execute(&self.pool)
         .await
-        .map_err(Self::map_sqlx_error)?;
+        .map_err(map_sqlx_error)?;
 
         Ok(())
     }
@@ -93,12 +85,12 @@ impl PendingJobRepo for SqlitePendingJobRepo {
 
         sqlx::query(&format!(
             "DELETE FROM {} WHERE job_id == $1",
-            &self.settings.pending_job_table_name()
+            self.settings.pending_job_table_name
         ))
         .bind(job_id.to_string())
         .execute(&self.pool)
         .await
-        .map_err(Self::map_sqlx_error)?;
+        .map_err(map_sqlx_error)?;
 
         Ok(existing_job.unwrap())
     }
@@ -117,12 +109,12 @@ impl PendingJobRepo for SqlitePendingJobRepo {
 
         let existing_job: Option<RGet> = sqlx::query_as(&format!(
             "SELECT job_id, scheduled_at FROM {} WHERE scheduled_at < $1 ORDER BY scheduled_at ASC LIMIT 1",
-            &self.settings.pending_job_table_name()
+            self.settings.pending_job_table_name
         ))
         .bind(timestamp)
         .fetch_optional(&self.pool)
         .await
-        .map_err(Self::map_sqlx_error)?;
+        .map_err(map_sqlx_error)?;
 
         let existing_job = match existing_job {
             Some(job) => PendingJob::new(

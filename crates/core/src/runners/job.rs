@@ -125,7 +125,7 @@ impl<TData: ContextData> JobRunner<TData> {
     }
 
     async fn save_running_job(&self, job: &Job) -> Result<()> {
-        let running_job = RunningJob::new(RunId::new(), *job.id(), Utc::now());
+        let running_job = RunningJob::new(*job.id(), RunId::default(), Utc::now());
         self.context
             .get_required_service::<Storage>()
             .running_job_repo()
