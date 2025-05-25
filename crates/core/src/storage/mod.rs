@@ -8,7 +8,10 @@ use job::{JobRepo, PendingJobRepo, RunningJobRepo};
 use run::{FailedRunRepo, SuccessfulRunRepo};
 use std::sync::Arc;
 
-use crate::{domain::job::context::ContextData, services::verify::VerifyService};
+use crate::{
+    domain::job::context::ContextData,
+    services::{verify::VerifyService, Services},
+};
 
 #[derive(Clone, Getters)]
 #[getset(get = "pub")]
@@ -70,5 +73,16 @@ impl Storage {
 
     pub fn failed_run_repo(&self) -> &dyn FailedRunRepo {
         self.inner.failed_run_repo.as_ref()
+    }
+}
+
+pub trait AddStorageService<TData: ContextData> {
+    fn add_storage(&self, storage: impl Into<Storage>) -> Self;
+}
+
+impl<TData: ContextData> AddStorageService<TData> for Services<TData> {
+    fn add_storage(&self, storage: impl Into<Storage>) -> Self {
+        self.add_service(storage.into());
+        self.clone()
     }
 }

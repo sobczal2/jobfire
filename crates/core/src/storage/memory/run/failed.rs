@@ -15,7 +15,7 @@ pub struct MemoryFailedRunRepo {
 
 #[async_trait]
 impl FailedRunRepo for MemoryFailedRunRepo {
-    async fn get_by_run_id(
+    async fn get(
         &self,
         run_id: &crate::domain::run::id::RunId,
     ) -> crate::storage::error::Result<Option<FailedRun>> {
@@ -30,7 +30,7 @@ impl FailedRunRepo for MemoryFailedRunRepo {
     }
 
     async fn add(&self, run: FailedRun) -> crate::storage::error::Result<()> {
-        let existing_job = self.get_by_run_id(run.run_id()).await?;
+        let existing_job = self.get(run.run_id()).await?;
         if existing_job.is_some() {
             return Err(Error::AlreadyExists);
         }

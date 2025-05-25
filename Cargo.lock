@@ -774,6 +774,7 @@ dependencies = [
  "chrono",
  "jobfire-core",
  "jobfire-ephemeral",
+ "jobfire-storage-sqlite",
  "log",
  "serde",
  "simple_logger",
@@ -788,8 +789,12 @@ version = "0.1.0"
 name = "jobfire-storage-sqlite"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "chrono",
  "jobfire-core",
+ "log",
+ "serde",
+ "serde_json",
  "sqlx",
  "thiserror",
  "tokio",

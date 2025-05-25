@@ -48,7 +48,7 @@ pub struct Job {
 }
 
 impl Job {
-    fn new(id: JobId, created_at: DateTime<Utc>, r#impl: SerializedJobImpl) -> Self {
+    pub fn new(id: JobId, created_at: DateTime<Utc>, r#impl: SerializedJobImpl) -> Self {
         Self {
             id,
             created_at,

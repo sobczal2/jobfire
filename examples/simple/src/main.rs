@@ -9,9 +9,10 @@ use jobfire_core::{
     },
     managers::job_manager::JobManager,
     registries::builders::AddActionsRegistryService,
-    storage::memory::AddMemoryStorageService,
+    storage::{AddStorageService, memory::AddMemoryStorageService},
 };
 use jobfire_ephemeral::{AddEphemeralExtension, RegisterEphemeralJob, ScheduleEphemeralJob};
+use jobfire_storage_sqlite::SqliteStorage;
 use serde::{Deserialize, Serialize};
 use simple_logger::SimpleLogger;
 use std::{ops::AddAssign, sync::Mutex};
@@ -71,12 +72,15 @@ async fn main() {
         counter: Mutex::new(0),
     };
 
+    let storage = SqliteStorage::new_in_memory().await;
+
     let manager = JobManager::new_default(context_data, |builder| {
         builder.add_job_actions_registry(|jr_builder| {
             jr_builder.register::<SimpleJobImpl>();
             jr_builder.register_ephemeral_job();
         });
         builder.add_memory_storage();
+        builder.add_storage(storage);
         builder.add_ephemeral_extension();
     })
     .unwrap();

@@ -19,7 +19,7 @@ pub trait SuccessfulRunRepo: Send + Sync + 'static {
     ///
     /// * `Result<Option<SuccessfulRun>>` - Returns the successful run if found, None if not found,
     ///   or an error if the retrieval operation failed.
-    async fn get_by_run_id(&self, run_id: &RunId) -> Result<Option<SuccessfulRun>>;
+    async fn get(&self, run_id: &RunId) -> Result<Option<SuccessfulRun>>;
 
     /// Adds a successful run to the repository.
     ///
@@ -56,7 +56,7 @@ pub trait FailedRunRepo: Send + Sync + 'static {
     ///
     /// * `Result<Option<FailedRun>>` - Returns the failed run if found, None if not found,
     ///   or an error if the retrieval operation failed.
-    async fn get_by_run_id(&self, run_id: &RunId) -> Result<Option<FailedRun>>;
+    async fn get(&self, run_id: &RunId) -> Result<Option<FailedRun>>;
 
     /// Adds a failed run to the repository.
     ///
