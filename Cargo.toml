@@ -3,8 +3,7 @@ members = [
     "crates/core",
     "crates/extensions/ephemeral",
     "crates/extensions/recurring",
-    "crates/storage/sqlite",
-    "examples/simple",
+    "crates/storage/sqlite"
 ]
 resolver = "2"
 

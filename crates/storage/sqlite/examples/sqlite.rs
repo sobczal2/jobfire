@@ -1,6 +1,6 @@
+use async_trait::async_trait;
 use chrono::{Duration, Utc};
 use jobfire_core::{
-    Uuid, async_trait,
     domain::job::{
         context::{Context, ContextData},
         error::JobResult,
@@ -9,14 +9,14 @@ use jobfire_core::{
     },
     managers::job_manager::JobManager,
     registries::builders::AddActionsRegistryService,
-    storage::{AddStorageService, memory::AddMemoryStorageService},
+    storage::AddStorageService,
 };
-use jobfire_ephemeral::{AddEphemeralExtension, RegisterEphemeralJob, ScheduleEphemeralJob};
 use jobfire_storage_sqlite::SqliteStorage;
 use serde::{Deserialize, Serialize};
 use simple_logger::SimpleLogger;
-use std::{ops::AddAssign, sync::Mutex};
+use std::sync::Mutex;
 use tokio::{signal::ctrl_c, time::sleep};
+use uuid::Uuid;
 
 struct SimpleContextData {
     counter: Mutex<usize>,
@@ -24,7 +24,7 @@ struct SimpleContextData {
 
 impl SimpleContextData {
     fn increment(&self) {
-        self.counter.lock().unwrap().add_assign(1);
+        *self.counter.lock().unwrap() += 1;
     }
 
     fn read(&self) -> usize {
@@ -36,7 +36,7 @@ impl ContextData for SimpleContextData {}
 
 #[derive(Serialize, Deserialize)]
 struct SimpleJobImpl {
-    xd: Uuid,
+    id: Uuid,
 }
 
 #[async_trait]
@@ -54,10 +54,10 @@ impl JobImpl<SimpleContextData> for SimpleJobImpl {
     }
 
     async fn on_success(&self, _context: Context<SimpleContextData>) {
-        log::info!("on_sucess ran: {}", self.xd);
+        log::info!("on_sucess ran: {}", self.id);
     }
     async fn on_fail(&self, _context: Context<SimpleContextData>) {
-        log::info!("on_fail ran: {}", self.xd);
+        log::info!("on_fail ran: {}", self.id);
     }
 }
 
@@ -77,50 +77,36 @@ async fn main() {
     let manager = JobManager::new_default(context_data, |builder| {
         builder.add_job_actions_registry(|jr_builder| {
             jr_builder.register::<SimpleJobImpl>();
-            jr_builder.register_ephemeral_job();
         });
-        builder.add_memory_storage();
         builder.add_storage(storage);
-        builder.add_ephemeral_extension();
     })
     .unwrap();
-
-    for _ in 0..100 {
-        let _job_id = manager
-            .schedule_simple_ephemeral_job_now(async |_| {
-                sleep(std::time::Duration::from_secs(11)).await;
-                log::info!("hello from ephemeral job");
-                Ok(Report::new())
-            })
-            .await
-            .unwrap();
-    }
 
     let now = Utc::now();
 
     let jobs = vec![
         (
-            SimpleJobImpl { xd: Uuid::now_v7() },
+            SimpleJobImpl { id: Uuid::now_v7() },
             now - Duration::seconds(10),
         ),
         (
-            SimpleJobImpl { xd: Uuid::now_v7() },
+            SimpleJobImpl { id: Uuid::now_v7() },
             now + Duration::seconds(5),
         ),
         (
-            SimpleJobImpl { xd: Uuid::now_v7() },
+            SimpleJobImpl { id: Uuid::now_v7() },
             now + Duration::seconds(10),
         ),
         (
-            SimpleJobImpl { xd: Uuid::now_v7() },
+            SimpleJobImpl { id: Uuid::now_v7() },
             now + Duration::seconds(15),
         ),
         (
-            SimpleJobImpl { xd: Uuid::now_v7() },
+            SimpleJobImpl { id: Uuid::now_v7() },
             now + Duration::seconds(20),
         ),
         (
-            SimpleJobImpl { xd: Uuid::now_v7() },
+            SimpleJobImpl { id: Uuid::now_v7() },
             now + Duration::seconds(25),
         ),
     ];

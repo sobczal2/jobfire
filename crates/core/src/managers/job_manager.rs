@@ -48,7 +48,7 @@ impl<TData: ContextData> JobManager<TData> {
         B: FnOnce(&Services<TData>),
     {
         let services = Services::default();
-        let context = Context::new(data.into(), services.clone());
+        let context = Context::new(data, services.clone());
         add_default_services(&context);
         builder(&services);
         Self::verify(&services)?;
@@ -62,7 +62,7 @@ impl<TData: ContextData> JobManager<TData> {
         B: FnOnce(&Services<TData>),
     {
         let services = Services::default();
-        let context = Context::new(data.into(), services.clone());
+        let context = Context::new(data, services.clone());
         builder(&services);
         Self::verify(&services)?;
         services.verify()?;

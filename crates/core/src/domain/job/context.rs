@@ -23,8 +23,11 @@ impl<TData: ContextData> Clone for Context<TData> {
 }
 
 impl<TData: ContextData> Context<TData> {
-    pub fn new(data: Arc<TData>, services: Services<TData>) -> Self {
-        Self { data, services }
+    pub fn new(data: impl Into<TData>, services: Services<TData>) -> Self {
+        Self {
+            data: Arc::new(data.into()),
+            services,
+        }
     }
 
     pub fn data(&self) -> Arc<TData> {
@@ -43,3 +46,7 @@ impl<TData: ContextData> Context<TData> {
         self.services.get_required_service()
     }
 }
+
+pub struct EmptyContextData;
+
+impl ContextData for EmptyContextData {}
