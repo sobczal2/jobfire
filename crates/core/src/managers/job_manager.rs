@@ -45,7 +45,7 @@ pub struct JobManager<TData: ContextData> {
 impl<TData: ContextData> JobManager<TData> {
     pub fn new_default<B>(data: TData, builder: B) -> std::result::Result<Self, ServiceMissing>
     where
-        B: FnOnce(&Services<TData>),
+        B: FnOnce(&Services),
     {
         let services = Services::default();
         let context = Context::new(data, services.clone());
@@ -59,7 +59,7 @@ impl<TData: ContextData> JobManager<TData> {
 
     pub fn new_empty<B>(data: TData, builder: B) -> std::result::Result<Self, ServiceMissing>
     where
-        B: FnOnce(&Services<TData>),
+        B: FnOnce(&Services),
     {
         let services = Services::default();
         let context = Context::new(data, services.clone());
@@ -70,13 +70,13 @@ impl<TData: ContextData> JobManager<TData> {
         Ok(Self::start(context))
     }
 
-    fn verify(services: &Services<TData>) -> std::result::Result<(), ServiceMissing> {
+    fn verify(services: &Services) -> std::result::Result<(), ServiceMissing> {
         verify_services!(
             services,
             JobWorkerSettings,
             Storage,
             JobRunner<TData>,
-            JobScheduler<TData>
+            JobScheduler
         );
 
         Ok(())
@@ -124,7 +124,7 @@ impl<TData: ContextData> JobManager<TData> {
         let job_id = *job.id();
 
         self.context
-            .get_required_service::<JobScheduler<TData>>()
+            .get_required_service::<JobScheduler>()
             .schedule(job, at)
             .await?;
 
@@ -133,7 +133,7 @@ impl<TData: ContextData> JobManager<TData> {
 
     pub async fn cancel(&self, job_id: &JobId) -> Result<()> {
         self.context
-            .get_required_service::<JobScheduler<TData>>()
+            .get_required_service::<JobScheduler>()
             .cancel(job_id)
             .await?;
         Ok(())
@@ -145,7 +145,7 @@ impl<TData: ContextData> JobManager<TData> {
         new_scheduled_at: DateTime<chrono::Utc>,
     ) -> Result<()> {
         self.context
-            .get_required_service::<JobScheduler<TData>>()
+            .get_required_service::<JobScheduler>()
             .reschedule(job_id, new_scheduled_at)
             .await?;
         Ok(())

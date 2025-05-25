@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use thiserror::Error;
 
 use crate::{
-    domain::job::{self, context::ContextData, id::JobId, pending::PendingJob},
+    domain::job::{self, id::JobId, pending::PendingJob},
     services::{
         Services,
         verify::{ServiceMissing, VerifyService},
@@ -23,11 +23,11 @@ pub enum Error {
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-pub struct JobScheduler<TData: ContextData> {
-    services: Services<TData>,
+pub struct JobScheduler {
+    services: Services,
 }
 
-impl<TData: ContextData> Clone for JobScheduler<TData> {
+impl Clone for JobScheduler {
     fn clone(&self) -> Self {
         Self {
             services: self.services.clone(),
@@ -35,20 +35,20 @@ impl<TData: ContextData> Clone for JobScheduler<TData> {
     }
 }
 
-impl<TData: ContextData> JobScheduler<TData> {
-    pub fn new(services: Services<TData>) -> Self {
+impl JobScheduler {
+    pub fn new(services: Services) -> Self {
         Self { services }
     }
 }
 
-impl<TData: ContextData> VerifyService<TData> for JobScheduler<TData> {
-    fn verify(&self, services: &Services<TData>) -> std::result::Result<(), ServiceMissing> {
+impl VerifyService for JobScheduler {
+    fn verify(&self, services: &Services) -> std::result::Result<(), ServiceMissing> {
         verify_services!(services, Storage);
         Ok(())
     }
 }
 
-impl<TData: ContextData> JobScheduler<TData> {
+impl JobScheduler {
     pub async fn schedule(&self, job: job::Job, scheduled_at: DateTime<Utc>) -> Result<()> {
         let storage = self.services.get_required_service::<Storage>();
 

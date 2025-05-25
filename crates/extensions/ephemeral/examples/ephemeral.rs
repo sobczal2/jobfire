@@ -16,10 +16,10 @@ async fn main() {
         .unwrap();
 
     let manager = JobManager::new_default(EmptyContextData, |builder| {
-        builder.add_job_actions_registry(|jr_builder| {
+        builder.add_job_actions_registry::<EmptyContextData, _>(|jr_builder| {
             jr_builder.register_ephemeral_job();
         });
-        builder.add_ephemeral_extension();
+        builder.add_ephemeral_extension::<EmptyContextData>();
         builder.add_memory_storage();
     })
     .unwrap();

@@ -3,19 +3,16 @@ pub mod verify;
 use std::{
     any::{Any, TypeId},
     collections::HashMap,
-    marker::PhantomData,
     sync::{Arc, RwLock},
 };
 
 use verify::{ServiceMissing, VerifyService};
 
-use crate::domain::job::context::ContextData;
-
-pub struct Services<TData: ContextData> {
-    inner: Arc<RwLock<ServicesInner<TData>>>,
+pub struct Services {
+    inner: Arc<RwLock<ServicesInner>>,
 }
 
-impl<TData: ContextData> Clone for Services<TData> {
+impl Clone for Services {
     fn clone(&self) -> Self {
         Self {
             inner: self.inner.clone(),
@@ -23,28 +20,26 @@ impl<TData: ContextData> Clone for Services<TData> {
     }
 }
 
-impl<TData: ContextData> Default for Services<TData> {
+impl Default for Services {
     fn default() -> Self {
         Self::new(Default::default(), Default::default())
     }
 }
 
-struct ServicesInner<TData: ContextData> {
+struct ServicesInner {
     map: HashMap<TypeId, Box<dyn Any + Send + Sync>>,
-    verify_services: Vec<Box<dyn VerifyService<TData> + Send + Sync>>,
-    phantom_data: PhantomData<TData>,
+    verify_services: Vec<Box<dyn VerifyService + Send + Sync>>,
 }
 
-impl<TData: ContextData> Services<TData> {
+impl Services {
     pub fn new(
         map: HashMap<TypeId, Box<dyn Any + Send + Sync>>,
-        verify_services: Vec<Box<dyn VerifyService<TData> + Send + Sync>>,
+        verify_services: Vec<Box<dyn VerifyService + Send + Sync>>,
     ) -> Self {
         Self {
             inner: Arc::new(RwLock::new(ServicesInner {
                 map,
                 verify_services,
-                phantom_data: Default::default(),
             })),
         }
     }
@@ -85,7 +80,7 @@ impl<TData: ContextData> Services<TData> {
         self.clone()
     }
 
-    pub fn add_service<T: VerifyService<TData> + Clone + Send + Sync + 'static>(
+    pub fn add_service<T: VerifyService + Clone + Send + Sync + 'static>(
         &self,
         service: T,
     ) -> Self {
@@ -94,7 +89,7 @@ impl<TData: ContextData> Services<TData> {
         self.clone()
     }
 
-    pub fn verify_service_on_build<T: VerifyService<TData> + Clone + Send + Sync + 'static>(
+    pub fn verify_service_on_build<T: VerifyService + Clone + Send + Sync + 'static>(
         &self,
         verify_service: T,
     ) {

@@ -22,11 +22,11 @@ pub mod ephemeral_fn_registry;
 pub mod r#impl;
 
 pub trait AddEphemeralExtension {
-    fn add_ephemeral_extension(&self) -> Self;
+    fn add_ephemeral_extension<TData: ContextData>(&self) -> Self;
 }
 
-impl<TData: ContextData> AddEphemeralExtension for Services<TData> {
-    fn add_ephemeral_extension(&self) -> Self {
+impl AddEphemeralExtension for Services {
+    fn add_ephemeral_extension<TData: ContextData>(&self) -> Self {
         self.add_service(EphemeralFnRegistry::<TData>::default())
             .clone()
     }

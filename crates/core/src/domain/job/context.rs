@@ -10,7 +10,7 @@ pub trait ContextData: Send + Sync + 'static {}
 /// Provides access to data and allows scheduling new jobs.
 pub struct Context<TData: ContextData> {
     data: Arc<TData>,
-    services: Services<TData>,
+    services: Services,
 }
 
 impl<TData: ContextData> Clone for Context<TData> {
@@ -23,7 +23,7 @@ impl<TData: ContextData> Clone for Context<TData> {
 }
 
 impl<TData: ContextData> Context<TData> {
-    pub fn new(data: impl Into<TData>, services: Services<TData>) -> Self {
+    pub fn new(data: impl Into<TData>, services: Services) -> Self {
         Self {
             data: Arc::new(data.into()),
             services,
@@ -34,7 +34,7 @@ impl<TData: ContextData> Context<TData> {
         self.data.clone()
     }
 
-    pub fn services(&self) -> &Services<TData> {
+    pub fn services(&self) -> &Services {
         &self.services
     }
 

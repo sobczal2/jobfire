@@ -95,10 +95,10 @@ impl<TData: ContextData> Default for EphemeralFnRegistry<TData> {
     }
 }
 
-impl<TData: ContextData> VerifyService<TData> for EphemeralFnRegistry<TData> {
+impl<TData: ContextData> VerifyService for EphemeralFnRegistry<TData> {
     fn verify(
         &self,
-        _services: &jobfire_core::services::Services<TData>,
+        _services: &jobfire_core::services::Services,
     ) -> std::result::Result<(), jobfire_core::services::verify::ServiceMissing> {
         Ok(())
     }

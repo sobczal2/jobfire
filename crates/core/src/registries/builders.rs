@@ -121,15 +121,17 @@ impl<TData: ContextData> From<JobActionsRegistryBuilder<TData>> for JobActionsRe
     }
 }
 
-pub trait AddActionsRegistryService<TData: ContextData> {
-    fn add_job_actions_registry<B>(&self, builder: B) -> Self
+pub trait AddActionsRegistryService {
+    fn add_job_actions_registry<TData, B>(&self, builder: B) -> Self
     where
+        TData: ContextData,
         B: FnOnce(&mut JobActionsRegistryBuilder<TData>);
 }
 
-impl<TData: ContextData> AddActionsRegistryService<TData> for Services<TData> {
-    fn add_job_actions_registry<B>(&self, builder: B) -> Self
+impl AddActionsRegistryService for Services {
+    fn add_job_actions_registry<TData, B>(&self, builder: B) -> Self
     where
+        TData: ContextData,
         B: FnOnce(&mut JobActionsRegistryBuilder<TData>),
     {
         log::debug!("adding JobActionsRegistry as a service");

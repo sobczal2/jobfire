@@ -1,7 +1,5 @@
 use thiserror::Error;
 
-use crate::domain::job::context::ContextData;
-
 use super::Services;
 
 #[derive(Error, Debug)]
@@ -14,8 +12,8 @@ impl ServiceMissing {
     }
 }
 
-pub trait VerifyService<TData: ContextData> {
-    fn verify(&self, services: &Services<TData>) -> Result<(), ServiceMissing>;
+pub trait VerifyService {
+    fn verify(&self, services: &Services) -> Result<(), ServiceMissing>;
 }
 
 #[macro_export]

@@ -8,10 +8,7 @@ use job::{JobRepo, PendingJobRepo, RunningJobRepo};
 use run::{FailedRunRepo, SuccessfulRunRepo};
 use std::sync::Arc;
 
-use crate::{
-    domain::job::context::ContextData,
-    services::{verify::VerifyService, Services},
-};
+use crate::services::{verify::VerifyService, Services};
 
 #[derive(Clone, Getters)]
 #[getset(get = "pub")]
@@ -19,10 +16,10 @@ pub struct Storage {
     inner: Arc<StorageInner>,
 }
 
-impl<TData: ContextData> VerifyService<TData> for Storage {
+impl VerifyService for Storage {
     fn verify(
         &self,
-        _services: &crate::services::Services<TData>,
+        _services: &crate::services::Services,
     ) -> Result<(), crate::services::verify::ServiceMissing> {
         Ok(())
     }
@@ -76,11 +73,11 @@ impl Storage {
     }
 }
 
-pub trait AddStorageService<TData: ContextData> {
+pub trait AddStorageService {
     fn add_storage(&self, storage: impl Into<Storage>) -> Self;
 }
 
-impl<TData: ContextData> AddStorageService<TData> for Services<TData> {
+impl AddStorageService for Services {
     fn add_storage(&self, storage: impl Into<Storage>) -> Self {
         self.add_service(storage.into());
         self.clone()
