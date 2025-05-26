@@ -52,6 +52,8 @@ pub trait JobRepo: Send + Sync + 'static {
     /// * `Result<Job>` - Returns the deleted job on success,
     ///   or an error if the deletion operation failed or the job was not found.
     async fn delete(&self, job_id: &JobId) -> Result<Job>;
+
+    async fn update(&self, job: Job) -> Result<()>;
 }
 
 /// Repository interface for managing `PendingJob` entities.

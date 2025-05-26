@@ -1,16 +1,20 @@
 use chrono::{DateTime, Utc};
 use context::ContextData;
+use data::JobData;
 use getset::Getters;
 use id::JobId;
+use policy::{Policy, PolicyName};
 use r#impl::{JobImpl, SerializedJobImpl};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 pub mod context;
+pub mod data;
 pub mod error;
 pub mod id;
 pub mod r#impl;
 pub mod pending;
+pub mod policy;
 pub mod report;
 pub mod running;
 
@@ -45,14 +49,24 @@ pub struct Job {
     /// Contains the serialized form of the job logic. At runtime,
     /// the actual job functionality is recreated from this serialized data.
     r#impl: SerializedJobImpl,
+
+    policies: Vec<PolicyName>,
+
+    data: JobData,
 }
 
 impl Job {
-    pub fn new(id: JobId, created_at: DateTime<Utc>, r#impl: SerializedJobImpl) -> Self {
+    pub fn new(
+        id: JobId,
+        created_at: DateTime<Utc>,
+        r#impl: SerializedJobImpl,
+        data: JobData,
+    ) -> Self {
         Self {
             id,
             created_at,
             r#impl,
+            data,
         }
     }
 
@@ -62,6 +76,7 @@ impl Job {
             JobId::default(),
             Utc::now(),
             SerializedJobImpl::from_job_impl(r#job_impl).map_err(|_| Error::BuildingJobFailed)?,
+            JobData::default(),
         ))
     }
 }

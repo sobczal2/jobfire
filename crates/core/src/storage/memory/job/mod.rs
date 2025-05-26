@@ -63,4 +63,10 @@ impl JobRepo for MemoryJobRepo {
             None => Err(Error::NotFound),
         }
     }
+
+    async fn update(&self, job: Job) -> crate::storage::error::Result<()> {
+        self.delete(job.id()).await?;
+        self.add(job).await?;
+        Ok(())
+    }
 }

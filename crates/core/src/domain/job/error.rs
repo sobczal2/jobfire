@@ -10,6 +10,9 @@ pub enum JobError {
     /// Job has been cancelled
     #[error("job has been cancelled")]
     JobCancelled,
+    /// Policy stopped
+    #[error("job has been stopped by policy")]
+    PolicyShortCircuit,
     /// custom message reserved for user defined errors
     #[error("job failed: {message}")]
     Custom { message: String },

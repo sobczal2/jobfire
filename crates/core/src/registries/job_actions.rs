@@ -80,6 +80,10 @@ impl<TData: ContextData> JobActions<TData> {
         (self.run.clone())(r#impl, context).await
     }
 
+    pub fn get_run_fn(&self) -> RunFn<TData> {
+        self.run.clone()
+    }
+
     pub async fn on_success(&self, r#impl: SerializedJobImpl, context: Context<TData>) {
         (self.on_success.clone())(r#impl, context).await
     }

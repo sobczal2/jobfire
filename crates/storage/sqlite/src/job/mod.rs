@@ -4,7 +4,7 @@ pub mod running;
 use crate::{SqliteStorageSettings, map_sqlx_error};
 use async_trait::async_trait;
 use jobfire_core::{
-    domain::job::{Job, id::JobId},
+    domain::job::{Job, data::JobData, id::JobId},
     storage::{self, job::JobRepo},
 };
 use sqlx::SqlitePool;
@@ -67,7 +67,7 @@ impl JobRepo for SqliteJobRepo {
                 let r#impl = serde_json::from_str(&row.impl_)
                     .map_err(|_| storage::error::Error::Internal)?;
 
-                Ok(Some(Job::new(id, created_at, r#impl)))
+                Ok(Some(Job::new(id, created_at, r#impl, JobData::default())))
             }
             None => Ok(None),
         }
@@ -108,5 +108,9 @@ impl JobRepo for SqliteJobRepo {
         .map_err(map_sqlx_error)?;
 
         Ok(existing.unwrap())
+    }
+
+    async fn update(&self, job: Job) -> storage::error::Result<()> {
+        todo!()
     }
 }

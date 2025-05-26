@@ -6,13 +6,16 @@ use crate::{
         job::{
             Job,
             context::{Context, ContextData},
+            error::JobResult,
             id::JobId,
             pending::PendingJob,
+            policy::Policy,
+            report::Report,
             running::RunningJob,
         },
         run::id::RunId,
     },
-    registries::job_actions::JobActionsRegistry,
+    registries::job_actions::{self, JobActions, JobActionsRegistry, RunFn},
     services::verify::{ServiceMissing, VerifyService},
     storage::{self, Storage},
     verify_services,
@@ -86,8 +89,8 @@ impl<TData: ContextData> JobRunner<TData> {
             .get(job.r#impl().name())
             .ok_or(Error::JobActionsNotFound)?;
 
-        let run_result = job_actions
-            .run(job.r#impl().clone(), self.context.clone())
+        let run_result = self
+            .run_job_with_policies(job_actions, Vec::new(), &job)
             .await;
 
         let running_job = self
@@ -95,6 +98,12 @@ impl<TData: ContextData> JobRunner<TData> {
             .get_required_service::<Storage>()
             .running_job_repo()
             .delete(job.id())
+            .await?;
+
+        self.context
+            .get_required_service::<Storage>()
+            .job_repo()
+            .update(job.clone())
             .await?;
 
         match run_result {
@@ -122,6 +131,21 @@ impl<TData: ContextData> JobRunner<TData> {
             }
         }
         Ok(())
+    }
+
+    async fn run_job_with_policies(
+        &self,
+        job_actions: JobActions<TData>,
+        policies: Vec<Box<dyn Policy<TData>>>,
+        job: &Job,
+    ) -> JobResult<Report> {
+        let mut run_fn: RunFn<TData> = job_actions.get_run_fn();
+
+        for policy in policies {
+            run_fn = policy.wrap_run(run_fn, job.data().clone());
+        }
+
+        run_fn(job.r#impl().clone(), self.context.clone()).await
     }
 
     async fn save_running_job(&self, job: &Job) -> Result<()> {
