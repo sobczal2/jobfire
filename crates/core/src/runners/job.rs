@@ -15,7 +15,8 @@ use crate::{
         },
         run::id::RunId,
     },
-    registries::job_actions::{self, JobActions, JobActionsRegistry, RunFn},
+    policies::instant_retry::InstantRetryPolicy,
+    registries::job_actions::{JobActions, JobActionsRegistry, RunFn},
     services::verify::{ServiceMissing, VerifyService},
     storage::{self, Storage},
     verify_services,
@@ -90,7 +91,11 @@ impl<TData: ContextData> JobRunner<TData> {
             .ok_or(Error::JobActionsNotFound)?;
 
         let run_result = self
-            .run_job_with_policies(job_actions, Vec::new(), &job)
+            .run_job_with_policies(
+                job_actions,
+                vec![Box::new(InstantRetryPolicy::default())],
+                &job,
+            )
             .await;
 
         let running_job = self

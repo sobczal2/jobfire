@@ -1,5 +1,6 @@
 pub mod domain;
 pub mod managers;
+pub mod policies;
 pub mod registries;
 pub mod runners;
 pub mod services;

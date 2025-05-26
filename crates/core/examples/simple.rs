@@ -2,12 +2,14 @@ use async_trait::async_trait;
 use chrono::{Duration, Utc};
 use jobfire_core::{
     domain::job::{
+        Job,
         context::{Context, ContextData},
         error::JobResult,
         r#impl::{JobImpl, JobImplName},
         report::Report,
     },
     managers::job_manager::JobManager,
+    policies::instant_retry::InstantRetryPolicy,
     registries::builders::AddActionsRegistryService,
     storage::memory::AddMemoryStorageService,
 };
@@ -48,8 +50,9 @@ impl JobImpl<SimpleContextData> for SimpleJobImpl {
         let context = context.data();
         context.increment();
         log::info!("job number {} run", context.read());
-        sleep(std::time::Duration::from_secs_f32(11f32)).await;
-        Ok(Report::new())
+        Err(jobfire_core::domain::job::error::JobError::Custom {
+            message: "test error".to_owned(),
+        })
     }
 
     async fn on_success(&self, _context: Context<SimpleContextData>) {
@@ -109,7 +112,8 @@ async fn main() {
     ];
 
     for (job_impl, at) in jobs.into_iter() {
-        manager.schedule(job_impl, at).await.unwrap();
+        let job = Job::from_impl(job_impl, vec![Box::new(InstantRetryPolicy::default())]).unwrap();
+        manager.schedule(job, at).await.unwrap();
     }
 
     ctrl_c().await.unwrap();

@@ -49,34 +49,42 @@ pub struct Job {
     /// Contains the serialized form of the job logic. At runtime,
     /// the actual job functionality is recreated from this serialized data.
     r#impl: SerializedJobImpl,
-
     policies: Vec<PolicyName>,
-
     data: JobData,
 }
 
 impl Job {
-    pub fn new(
+    fn new(
         id: JobId,
         created_at: DateTime<Utc>,
         r#impl: SerializedJobImpl,
+        policies: Vec<PolicyName>,
         data: JobData,
     ) -> Self {
         Self {
             id,
             created_at,
             r#impl,
+            policies,
             data,
         }
     }
 
     /// Function to create a job from custom job implementation
-    pub fn from_impl<TData: ContextData>(job_impl: impl JobImpl<TData>) -> Result<Self> {
+    pub fn from_impl<TData: ContextData>(
+        job_impl: impl JobImpl<TData>,
+        policies: Vec<Box<dyn Policy<TData>>>,
+    ) -> Result<Self> {
+        let data = JobData::default();
+        for policy in policies.iter() {
+            policy.init(data.clone());
+        }
         Ok(Self::new(
             JobId::default(),
             Utc::now(),
             SerializedJobImpl::from_job_impl(r#job_impl).map_err(|_| Error::BuildingJobFailed)?,
-            JobData::default(),
+            policies.iter().map(|p| p.name()).collect::<Vec<_>>(),
+            data,
         ))
     }
 }

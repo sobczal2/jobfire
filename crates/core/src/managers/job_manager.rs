@@ -115,12 +115,7 @@ impl<TData: ContextData> JobManager<TData> {
         Ok(())
     }
 
-    pub async fn schedule(
-        &self,
-        job_impl: impl JobImpl<TData>,
-        at: DateTime<Utc>,
-    ) -> Result<JobId> {
-        let job = Job::from_impl(job_impl).map_err(|_| Error::JobBuildFailed)?;
+    pub async fn schedule(&self, job: Job, at: DateTime<Utc>) -> Result<JobId> {
         let job_id = *job.id();
 
         self.context
