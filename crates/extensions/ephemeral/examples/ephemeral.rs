@@ -24,11 +24,11 @@ async fn main() {
     })
     .unwrap();
 
-    for _ in 0..100 {
+    for i in 0..100 {
         let _job_id = manager
-            .schedule_simple_ephemeral_job_now(async |_| {
+            .schedule_simple_ephemeral_job_now(move |_| async move {
                 sleep(std::time::Duration::from_secs(1)).await;
-                log::info!("hello from ephemeral job");
+                log::info!("hello from ephemeral job: {}", i);
                 Ok(Report::new())
             })
             .await
