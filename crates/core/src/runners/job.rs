@@ -6,17 +6,18 @@ use crate::{
         job::{
             Job,
             context::{Context, ContextData},
-            error::JobResult,
+            error::{JobError, JobResult},
             id::JobId,
             pending::PendingJob,
-            policy::Policy,
             report::Report,
             running::RunningJob,
         },
-        run::id::RunId,
+        run::{
+            id::RunId,
+            job_actions::{JobActions, RunFn},
+        },
     },
-    policies::instant_retry::InstantRetryPolicy,
-    registries::job_actions::{JobActions, JobActionsRegistry, RunFn},
+    registries::{job_actions::JobActionsRegistry, policies::PolicyRegistry},
     services::verify::{ServiceMissing, VerifyService},
     storage::{self, Storage},
     verify_services,
@@ -90,12 +91,10 @@ impl<TData: ContextData> JobRunner<TData> {
             .get(job.r#impl().name())
             .ok_or(Error::JobActionsNotFound)?;
 
+        let policy_registry = self.context.get_required_service::<PolicyRegistry<TData>>();
+
         let run_result = self
-            .run_job_with_policies(
-                job_actions,
-                vec![Box::new(InstantRetryPolicy::default())],
-                &job,
-            )
+            .run_job_with_policies(job_actions, policy_registry, &job)
             .await;
 
         let running_job = self
@@ -141,13 +140,15 @@ impl<TData: ContextData> JobRunner<TData> {
     async fn run_job_with_policies(
         &self,
         job_actions: JobActions<TData>,
-        policies: Vec<Box<dyn Policy<TData>>>,
+        policy_registry: PolicyRegistry<TData>,
         job: &Job,
     ) -> JobResult<Report> {
         let mut run_fn: RunFn<TData> = job_actions.get_run_fn();
 
-        for policy in policies {
-            run_fn = policy.wrap_run(run_fn, job.data().clone());
+        for policy in job.policies() {
+            run_fn = policy_registry
+                .wrap_run(policy.clone(), run_fn, job.data().clone())
+                .map_err(|_| JobError::PolicyNotFound)?;
         }
 
         run_fn(job.r#impl().clone(), self.context.clone()).await

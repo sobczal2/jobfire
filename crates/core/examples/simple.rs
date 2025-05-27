@@ -3,14 +3,17 @@ use chrono::{Duration, Utc};
 use jobfire_core::{
     domain::job::{
         Job,
-        context::{Context, ContextData},
+        context::{Context, ContextData, EmptyContextData},
         error::JobResult,
         r#impl::{JobImpl, JobImplName},
         report::Report,
     },
     managers::job_manager::JobManager,
     policies::instant_retry::InstantRetryPolicy,
-    registries::builders::AddActionsRegistryService,
+    registries::{
+        job_actions::JobActionsRegistryBuilder,
+        policies::{PolicyRegistry, PolicyRegistryBuilder},
+    },
     storage::memory::AddMemoryStorageService,
 };
 use serde::{Deserialize, Serialize};
@@ -75,9 +78,14 @@ async fn main() {
     };
 
     let manager = JobManager::new_default(context_data, |builder| {
-        builder.add_job_actions_registry(|jr_builder| {
-            jr_builder.register::<SimpleJobImpl>();
-        });
+        let mut job_actions_registry = JobActionsRegistryBuilder::default();
+        job_actions_registry.register::<SimpleJobImpl>();
+        builder.add_service(job_actions_registry.build());
+
+        let mut policy_registry = PolicyRegistryBuilder::<SimpleContextData>::default();
+        policy_registry.register(InstantRetryPolicy::default());
+        builder.add_service(policy_registry.build());
+
         builder.add_memory_storage();
     })
     .unwrap();

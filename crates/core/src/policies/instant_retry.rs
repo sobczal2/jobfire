@@ -2,51 +2,59 @@ use std::{marker::PhantomData, sync::Arc};
 
 use log::error;
 
-use crate::{
-    domain::job::{
+use crate::domain::{
+    job::{
         context::{Context, ContextData},
         data::JobData,
         error::JobError,
         r#impl::SerializedJobImpl,
         policy::{Policy, PolicyName},
     },
-    registries::job_actions::{OnFailFn, OnSuccessFn, RunFn},
+    run::job_actions::RunFn,
 };
 
+#[derive(Clone)]
 pub struct InstantRetryPolicy<TData: ContextData> {
+    name: PolicyName,
     max_tries: u32,
     phantom_data: PhantomData<TData>,
 }
 
-const MAX_TRIES: &str = "jobfire::instant_retry::MAX_TRIES";
-const CURRENT_TRY: &str = "jobfire::instant_retry::CURRENT_TRY";
-
 impl<TData: ContextData> Default for InstantRetryPolicy<TData> {
     fn default() -> Self {
         Self {
+            name: PolicyName::new("jobfire::instant_retry"),
             max_tries: 5,
             phantom_data: Default::default(),
         }
     }
 }
 
+impl<TData: ContextData> InstantRetryPolicy<TData> {
+    fn max_tries_key(&self) -> String {
+        format!("{}::MAX_TRIES", self.name())
+    }
+}
+
 impl<TData: ContextData> Policy<TData> for InstantRetryPolicy<TData> {
     fn name(&self) -> PolicyName {
-        PolicyName::new("jobfire::instant_retry")
+        self.name.clone()
     }
 
     fn init(&self, data: JobData) {
-        data.set(MAX_TRIES, self.max_tries).unwrap();
-        data.set(CURRENT_TRY, 0u32).unwrap();
+        data.set(&self.max_tries_key(), self.max_tries).unwrap();
     }
 
     fn wrap_run(&self, f: RunFn<TData>, data: JobData) -> RunFn<TData> {
+        let max_tries_key = self.max_tries_key();
         let run: RunFn<TData> = Arc::new(
             move |serialized_job_impl: SerializedJobImpl, job_context: Context<TData>| {
                 let f = f.clone();
                 let data = data.clone();
+                let max_tries_key = max_tries_key.clone();
+
                 Box::pin(async move {
-                    let max_tries: u32 = data.get(MAX_TRIES).unwrap().unwrap();
+                    let max_tries: u32 = data.get(&max_tries_key).unwrap().unwrap();
                     let mut current_try: u32 = 0;
                     let mut result = Err(JobError::PolicyShortCircuit);
                     while current_try < max_tries {
@@ -63,13 +71,5 @@ impl<TData: ContextData> Policy<TData> for InstantRetryPolicy<TData> {
         );
 
         run
-    }
-
-    fn wrap_on_fail(&self, f: OnFailFn<TData>, data: JobData) -> OnFailFn<TData> {
-        todo!()
-    }
-
-    fn wrap_on_success(&self, f: OnSuccessFn<TData>, data: JobData) -> OnSuccessFn<TData> {
-        todo!()
     }
 }

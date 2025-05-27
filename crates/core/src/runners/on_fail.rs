@@ -106,9 +106,7 @@ impl<TData: ContextData> OnFailRunner<TData> {
             .get(input.job.r#impl().name())
             .ok_or(Error::JobActionsNotFound)?;
 
-        job_actions
-            .on_fail(input.job.r#impl().clone(), self.context.clone())
-            .await;
+        (job_actions.get_on_fail_fn())(input.job.r#impl().clone(), self.context.clone()).await;
 
         Ok(())
     }

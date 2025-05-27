@@ -13,6 +13,8 @@ pub enum JobError {
     /// Policy stopped
     #[error("job has been stopped by policy")]
     PolicyShortCircuit,
+    #[error("policy not found")]
+    PolicyNotFound,
     /// custom message reserved for user defined errors
     #[error("job failed: {message}")]
     Custom { message: String },

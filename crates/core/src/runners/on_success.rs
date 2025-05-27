@@ -103,9 +103,7 @@ impl<TData: ContextData> OnSuccessRunner<TData> {
             .get(input.job.r#impl().name())
             .ok_or(Error::JobActionsNotFound)?;
 
-        job_actions
-            .on_success(input.job.r#impl().clone(), self.context.clone())
-            .await;
+        (job_actions.get_on_success_fn())(input.job.r#impl().clone(), self.context.clone()).await;
 
         Ok(())
     }
