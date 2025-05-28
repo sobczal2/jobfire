@@ -1,7 +1,6 @@
 use jobfire_core::{
     domain::job::{context::EmptyContextData, report::Report},
     managers::job_manager::JobManager,
-    registries::builders::AddActionsRegistryService,
     storage::memory::AddMemoryStorageService,
 };
 use jobfire_ephemeral::{AddEphemeralExtension, RegisterEphemeralJob, ScheduleEphemeralJob};
@@ -16,9 +15,6 @@ async fn main() {
         .unwrap();
 
     let manager = JobManager::new_default(EmptyContextData, |builder| {
-        builder.add_job_actions_registry::<EmptyContextData, _>(|jr_builder| {
-            jr_builder.register_ephemeral_job();
-        });
         builder.add_ephemeral_extension::<EmptyContextData>();
         builder.add_memory_storage();
     })

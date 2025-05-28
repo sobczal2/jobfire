@@ -8,13 +8,13 @@ use r#impl::{EphemeralJobId, EphemeralJobImpl};
 use jobfire_core::{
     async_trait,
     domain::job::{
+        Job,
         context::{Context, ContextData},
         error::JobResult,
         id::JobId,
         report::Report,
     },
     managers::{self, job_manager::JobManager},
-    registries::builders::JobActionsRegistryBuilder,
     services::Services,
 };
 
@@ -34,12 +34,6 @@ impl AddEphemeralExtension for Services {
 
 pub trait RegisterEphemeralJob {
     fn register_ephemeral_job(&mut self) -> Self;
-}
-
-impl<TData: ContextData> RegisterEphemeralJob for JobActionsRegistryBuilder<TData> {
-    fn register_ephemeral_job(&mut self) -> Self {
-        self.register::<EphemeralJobImpl>().clone()
-    }
 }
 
 #[async_trait]
@@ -162,6 +156,11 @@ impl<TData: ContextData> ScheduleEphemeralJob<TData> for JobManager<TData> {
             .await
             .map_err(|e| managers::job_manager::Error::InternalError(e.to_string()))?;
 
-        self.schedule(ephemeral_job_impl, at).await
+        self.schedule(
+            Job::from_impl::<TData>(ephemeral_job_impl, Vec::new())
+                .map_err(|e| managers::job_manager::Error::InternalError(e.to_string()))?,
+            at,
+        )
+        .await
     }
 }
