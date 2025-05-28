@@ -6,6 +6,7 @@ use crate::{
         job::{
             Job,
             context::{Context, ContextData},
+            data::JobData,
             error::{JobError, JobResult},
             id::JobId,
             pending::PendingJob,
@@ -107,7 +108,7 @@ impl<TData: ContextData> JobRunner<TData> {
         self.context
             .get_required_service::<Storage>()
             .job_repo()
-            .update(job.clone())
+            .update(job.id(), job.data().clone())
             .await?;
 
         match run_result {

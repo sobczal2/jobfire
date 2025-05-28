@@ -54,7 +54,7 @@ pub struct Job {
 }
 
 impl Job {
-    fn new(
+    pub fn new(
         id: JobId,
         created_at: DateTime<Utc>,
         r#impl: SerializedJobImpl,
@@ -86,5 +86,9 @@ impl Job {
             policies.iter().map(|p| p.name()).collect::<Vec<_>>(),
             data,
         ))
+    }
+
+    pub fn update_data(&mut self, data: JobData) {
+        self.data = data;
     }
 }

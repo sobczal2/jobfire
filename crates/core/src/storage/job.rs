@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 
-use crate::domain::job::{Job, id::JobId, pending::PendingJob, running::RunningJob};
+use crate::domain::job::{Job, data::JobData, id::JobId, pending::PendingJob, running::RunningJob};
 
 use super::error::Result;
 
@@ -53,7 +53,7 @@ pub trait JobRepo: Send + Sync + 'static {
     ///   or an error if the deletion operation failed or the job was not found.
     async fn delete(&self, job_id: &JobId) -> Result<Job>;
 
-    async fn update(&self, job: Job) -> Result<()>;
+    async fn update(&self, job_id: &JobId, data: JobData) -> Result<()>;
 }
 
 /// Repository interface for managing `PendingJob` entities.

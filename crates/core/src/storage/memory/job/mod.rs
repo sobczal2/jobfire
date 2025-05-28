@@ -1,13 +1,12 @@
 pub mod pending;
 pub mod running;
 
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 use async_trait::async_trait;
-use tokio::sync::RwLock;
 
 use crate::{
-    domain::job::Job,
+    domain::job::{Job, data::JobData, id::JobId},
     storage::{error::Error, job::JobRepo},
 };
 
@@ -18,14 +17,11 @@ pub struct MemoryJobRepo {
 
 #[async_trait]
 impl JobRepo for MemoryJobRepo {
-    async fn get(
-        &self,
-        job_id: &crate::domain::job::id::JobId,
-    ) -> crate::storage::error::Result<Option<Job>> {
+    async fn get(&self, job_id: &JobId) -> crate::storage::error::Result<Option<Job>> {
         let job = self
             .elements
             .read()
-            .await
+            .unwrap()
             .iter()
             .find(|job| job.id() == job_id)
             .cloned();
@@ -38,18 +34,15 @@ impl JobRepo for MemoryJobRepo {
             return Err(Error::AlreadyExists);
         }
 
-        self.elements.write().await.push(job);
+        self.elements.write().unwrap().push(job);
         Ok(())
     }
 
-    async fn delete(
-        &self,
-        job_id: &crate::domain::job::id::JobId,
-    ) -> crate::storage::error::Result<Job> {
+    async fn delete(&self, job_id: &JobId) -> crate::storage::error::Result<Job> {
         let existing_index = self
             .elements
             .read()
-            .await
+            .unwrap()
             .iter()
             .enumerate()
             .find(|(_, job)| job.id() == job_id)
@@ -57,16 +50,20 @@ impl JobRepo for MemoryJobRepo {
 
         match existing_index {
             Some(existing_index) => {
-                let job = self.elements.write().await.swap_remove(existing_index);
+                let job = self.elements.write().unwrap().swap_remove(existing_index);
                 Ok(job)
             }
             None => Err(Error::NotFound),
         }
     }
 
-    async fn update(&self, job: Job) -> crate::storage::error::Result<()> {
-        self.delete(job.id()).await?;
-        self.add(job).await?;
+    async fn update(&self, job_id: &JobId, data: JobData) -> crate::storage::error::Result<()> {
+        let mut elements = self.elements.write().unwrap();
+        let job = elements.iter_mut().find(|job| job.id() == job_id);
+        if let Some(job) = job {
+            job.update_data(data);
+        }
+
         Ok(())
     }
 }

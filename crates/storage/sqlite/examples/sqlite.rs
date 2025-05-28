@@ -2,20 +2,22 @@ use async_trait::async_trait;
 use chrono::{Duration, Utc};
 use jobfire_core::{
     domain::job::{
+        Job,
         context::{Context, ContextData},
         error::JobResult,
         r#impl::{JobImpl, JobImplName},
         report::Report,
     },
     managers::job_manager::JobManager,
-    registries::builders::AddActionsRegistryService,
-    storage::AddStorageService,
+    policies::instant_retry::InstantRetryPolicy,
+    registries::{job_actions::JobActionsRegistryBuilder, policies::PolicyRegistryBuilder},
+    storage::{AddStorageService, memory::AddMemoryStorageService},
 };
 use jobfire_storage_sqlite::SqliteStorage;
 use serde::{Deserialize, Serialize};
 use simple_logger::SimpleLogger;
 use std::sync::Mutex;
-use tokio::{signal::ctrl_c, time::sleep};
+use tokio::signal::ctrl_c;
 use uuid::Uuid;
 
 struct SimpleContextData {
@@ -49,8 +51,9 @@ impl JobImpl<SimpleContextData> for SimpleJobImpl {
         let context = context.data();
         context.increment();
         log::info!("job number {} run", context.read());
-        sleep(std::time::Duration::from_secs_f32(11f32)).await;
-        Ok(Report::new())
+        Err(jobfire_core::domain::job::error::JobError::Custom {
+            message: "test error".to_owned(),
+        })
     }
 
     async fn on_success(&self, _context: Context<SimpleContextData>) {
@@ -75,9 +78,14 @@ async fn main() {
     let storage = SqliteStorage::new_in_memory().await;
 
     let manager = JobManager::new_default(context_data, |builder| {
-        builder.add_job_actions_registry(|jr_builder| {
-            jr_builder.register::<SimpleJobImpl>();
-        });
+        let mut job_actions_registry = JobActionsRegistryBuilder::default();
+        job_actions_registry.register::<SimpleJobImpl>();
+        builder.add_service(job_actions_registry.build());
+
+        let mut policy_registry = PolicyRegistryBuilder::<SimpleContextData>::default();
+        policy_registry.register(InstantRetryPolicy::default());
+        builder.add_service(policy_registry.build());
+
         builder.add_storage(storage);
     })
     .unwrap();
@@ -112,7 +120,8 @@ async fn main() {
     ];
 
     for (job_impl, at) in jobs.into_iter() {
-        manager.schedule(job_impl, at).await.unwrap();
+        let job = Job::from_impl(job_impl, vec![Box::new(InstantRetryPolicy::default())]).unwrap();
+        manager.schedule(job, at).await.unwrap();
     }
 
     ctrl_c().await.unwrap();

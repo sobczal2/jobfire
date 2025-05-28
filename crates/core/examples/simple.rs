@@ -3,23 +3,20 @@ use chrono::{Duration, Utc};
 use jobfire_core::{
     domain::job::{
         Job,
-        context::{Context, ContextData, EmptyContextData},
+        context::{Context, ContextData},
         error::JobResult,
         r#impl::{JobImpl, JobImplName},
         report::Report,
     },
     managers::job_manager::JobManager,
     policies::instant_retry::InstantRetryPolicy,
-    registries::{
-        job_actions::JobActionsRegistryBuilder,
-        policies::{PolicyRegistry, PolicyRegistryBuilder},
-    },
+    registries::{job_actions::JobActionsRegistryBuilder, policies::PolicyRegistryBuilder},
     storage::memory::AddMemoryStorageService,
 };
 use serde::{Deserialize, Serialize};
 use simple_logger::SimpleLogger;
 use std::sync::Mutex;
-use tokio::{signal::ctrl_c, time::sleep};
+use tokio::signal::ctrl_c;
 use uuid::Uuid;
 
 struct SimpleContextData {
