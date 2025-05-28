@@ -4,12 +4,12 @@ use jobfire_core::{
     domain::job::{
         Job,
         context::{Context, ContextData},
-        error::JobResult,
+        error::{JobError, JobResult},
         r#impl::{JobImpl, JobImplName},
         report::Report,
     },
     managers::job_manager::JobManager,
-    policies::instant_retry::InstantRetryPolicy,
+    policies::{instant_retry::InstantRetryPolicy, timeout::TimeoutPolicy},
     registries::{job_actions::JobActionsRegistryBuilder, policies::PolicyRegistryBuilder},
     storage::memory::AddMemoryStorageService,
 };
@@ -46,12 +46,10 @@ impl JobImpl<SimpleContextData> for SimpleJobImpl {
         JobImplName::new("simple".to_owned())
     }
 
-    async fn run(&self, context: Context<SimpleContextData>) -> JobResult<Report> {
-        let context = context.data();
-        context.increment();
-        log::info!("job number {} run", context.read());
-        Err(jobfire_core::domain::job::error::JobError::Custom {
-            message: "test error".to_owned(),
+    async fn run(&self, _context: Context<SimpleContextData>) -> JobResult<Report> {
+        log::info!("job number started");
+        Err(JobError::Custom {
+            message: "xd".to_owned(),
         })
     }
 
@@ -81,6 +79,7 @@ async fn main() {
 
         let mut policy_registry = PolicyRegistryBuilder::<SimpleContextData>::default();
         policy_registry.register(InstantRetryPolicy::default());
+        policy_registry.register(TimeoutPolicy::new(Duration::seconds(1)));
         builder.add_service(policy_registry.build());
 
         builder.add_memory_storage();

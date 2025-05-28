@@ -6,7 +6,7 @@ use std::sync::{Arc, RwLock};
 use async_trait::async_trait;
 
 use crate::{
-    domain::job::{Job, data::JobData, id::JobId},
+    domain::job::{Job, id::JobId, policy::Policies},
     storage::{error::Error, job::JobRepo},
 };
 
@@ -57,11 +57,15 @@ impl JobRepo for MemoryJobRepo {
         }
     }
 
-    async fn update(&self, job_id: &JobId, data: JobData) -> crate::storage::error::Result<()> {
+    async fn update_policies(
+        &self,
+        job_id: &JobId,
+        policies: Policies,
+    ) -> crate::storage::error::Result<()> {
         let mut elements = self.elements.write().unwrap();
         let job = elements.iter_mut().find(|job| job.id() == job_id);
         if let Some(job) = job {
-            job.update_data(data);
+            job.update_policies(policies);
         }
 
         Ok(())

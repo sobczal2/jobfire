@@ -40,7 +40,7 @@ impl PendingJobRepo for SqlitePendingJobRepo {
         }
 
         let result: Option<RGet> = sqlx::query_as(&format!(
-            "SELECT scheduled_at FROM {} WHERE job_id = $1",
+            "SELECT scheduled_at FROM {} WHERE job_id = ?",
             self.settings.pending_job_table_name,
         ))
         .bind(job_id.to_string())
@@ -65,7 +65,7 @@ impl PendingJobRepo for SqlitePendingJobRepo {
         }
 
         sqlx::query(&format!(
-            "INSERT INTO {} (job_id, scheduled_at) VALUES ($1, $2)",
+            "INSERT INTO {} (job_id, scheduled_at) VALUES (?, ?)",
             self.settings.pending_job_table_name,
         ))
         .bind(job.job_id().to_string())
@@ -84,7 +84,7 @@ impl PendingJobRepo for SqlitePendingJobRepo {
         }
 
         sqlx::query(&format!(
-            "DELETE FROM {} WHERE job_id == $1",
+            "DELETE FROM {} WHERE job_id = ?",
             self.settings.pending_job_table_name
         ))
         .bind(job_id.to_string())
@@ -108,7 +108,7 @@ impl PendingJobRepo for SqlitePendingJobRepo {
         let timestamp = now.timestamp_millis();
 
         let existing_job: Option<RGet> = sqlx::query_as(&format!(
-            "SELECT job_id, scheduled_at FROM {} WHERE scheduled_at < $1 ORDER BY scheduled_at ASC LIMIT 1",
+            "SELECT job_id, scheduled_at FROM {} WHERE scheduled_at < ? ORDER BY scheduled_at ASC LIMIT 1",
             self.settings.pending_job_table_name
         ))
         .bind(timestamp)

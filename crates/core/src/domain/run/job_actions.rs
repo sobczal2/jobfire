@@ -7,7 +7,7 @@ use crate::domain::job::{
     report::Report,
 };
 
-pub type RunFn<TData: ContextData> = Arc<
+pub type RunFn<TData> = Arc<
     dyn Fn(
             SerializedJobImpl,
             Context<TData>,
@@ -15,12 +15,12 @@ pub type RunFn<TData: ContextData> = Arc<
         + Send
         + Sync,
 >;
-pub type OnSuccessFn<TData: ContextData> = Arc<
+pub type OnSuccessFn<TData> = Arc<
     dyn Fn(SerializedJobImpl, Context<TData>) -> Pin<Box<dyn Future<Output = ()> + Send>>
         + Send
         + Sync,
 >;
-pub type OnFailFn<TData: ContextData> = Arc<
+pub type OnFailFn<TData> = Arc<
     dyn Fn(SerializedJobImpl, Context<TData>) -> Pin<Box<dyn Future<Output = ()> + Send>>
         + Send
         + Sync,

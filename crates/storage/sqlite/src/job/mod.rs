@@ -4,7 +4,7 @@ pub mod running;
 use crate::{SqliteStorageSettings, map_sqlx_error};
 use async_trait::async_trait;
 use jobfire_core::{
-    domain::job::{Job, data::JobData, id::JobId},
+    domain::job::{Job, id::JobId, policy::Policies},
     storage::{self, job::JobRepo},
 };
 use sqlx::SqlitePool;
@@ -27,8 +27,7 @@ CREATE TABLE IF NOT EXISTS {} (
     id TEXT PRIMARY KEY,
     created_at INTEGER NOT NULL,
     impl TEXT NOT NULL,
-    policies TEXT NOT NULL,
-    data TEXT NOT NULL
+    policies TEXT NOT NULL
 )",
             settings.job_table_name,
         ))
@@ -48,11 +47,10 @@ impl JobRepo for SqliteJobRepo {
             created_at: i64,
             r#impl: String,
             policies: String,
-            data: String,
         }
 
         let result = sqlx::query_as::<_, Row>(&format!(
-            "SELECT id, created_at, impl, policies, data FROM {} WHERE id = ?",
+            "SELECT id, created_at, impl, policies FROM {} WHERE id = ?",
             self.settings.job_table_name
         ))
         .bind(job_id.to_string())
@@ -72,10 +70,8 @@ impl JobRepo for SqliteJobRepo {
                     .map_err(|_| storage::error::Error::Internal)?;
                 let policies = serde_json::from_str(&row.policies)
                     .map_err(|_| storage::error::Error::Internal)?;
-                let data =
-                    serde_json::from_str(&row.data).map_err(|_| storage::error::Error::Internal)?;
 
-                Ok(Some(Job::new(id, created_at, r#impl, policies, data)))
+                Ok(Some(Job::new(id, created_at, r#impl, policies)))
             }
             None => Ok(None),
         }
@@ -87,14 +83,13 @@ impl JobRepo for SqliteJobRepo {
         }
 
         sqlx::query(&format!(
-            "INSERT INTO {} (id, created_at, impl, policies, data) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO {} (id, created_at, impl, policies) VALUES (?, ?, ?, ?)",
             self.settings.job_table_name
         ))
         .bind(job.id().to_string())
         .bind(job.created_at().timestamp_millis())
         .bind(serde_json::to_string(job.r#impl()).map_err(|_| storage::error::Error::Internal)?)
         .bind(serde_json::to_string(job.policies()).map_err(|_| storage::error::Error::Internal)?)
-        .bind(serde_json::to_string(job.data()).map_err(|_| storage::error::Error::Internal)?)
         .execute(&self.pool)
         .await
         .map_err(map_sqlx_error)?;
@@ -120,17 +115,25 @@ impl JobRepo for SqliteJobRepo {
         Ok(existing.unwrap())
     }
 
-    async fn update(&self, job_id: &JobId, data: JobData) -> storage::error::Result<()> {
+    async fn update_policies(
+        &self,
+        job_id: &JobId,
+        policies: Policies,
+    ) -> storage::error::Result<()> {
         let existing = self.get(job_id).await?;
         if existing.is_none() {
             return Err(storage::error::Error::NotFound);
         }
 
-        sqlx::query(&format!("UPDATE {} SET data", self.settings.job_table_name))
-            .bind(serde_json::to_string(&data).map_err(|_| storage::error::Error::Internal)?)
-            .execute(&self.pool)
-            .await
-            .map_err(map_sqlx_error)?;
+        sqlx::query(&format!(
+            "UPDATE {} SET policies = ? WHERE id = ?",
+            self.settings.job_table_name
+        ))
+        .bind(serde_json::to_string(&policies).map_err(|_| storage::error::Error::Internal)?)
+        .bind(job_id.to_string())
+        .execute(&self.pool)
+        .await
+        .map_err(map_sqlx_error)?;
 
         Ok(())
     }

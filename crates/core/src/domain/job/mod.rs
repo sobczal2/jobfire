@@ -1,15 +1,13 @@
 use chrono::{DateTime, Utc};
 use context::ContextData;
-use data::JobData;
 use getset::Getters;
 use id::JobId;
-use policy::{Policy, PolicyName};
+use policy::{Policies, Policy, PolicyData};
 use r#impl::{JobImpl, SerializedJobImpl};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 pub mod context;
-pub mod data;
 pub mod error;
 pub mod id;
 pub mod r#impl;
@@ -49,8 +47,9 @@ pub struct Job {
     /// Contains the serialized form of the job logic. At runtime,
     /// the actual job functionality is recreated from this serialized data.
     r#impl: SerializedJobImpl,
-    policies: Vec<PolicyName>,
-    data: JobData,
+
+    /// Policy names of policies for a job in the order of wraping
+    policies: Policies,
 }
 
 impl Job {
@@ -58,15 +57,13 @@ impl Job {
         id: JobId,
         created_at: DateTime<Utc>,
         r#impl: SerializedJobImpl,
-        policies: Vec<PolicyName>,
-        data: JobData,
+        policies: Policies,
     ) -> Self {
         Self {
             id,
             created_at,
             r#impl,
             policies,
-            data,
         }
     }
 
@@ -75,7 +72,7 @@ impl Job {
         job_impl: impl JobImpl<TData>,
         policies: Vec<Box<dyn Policy<TData>>>,
     ) -> Result<Self> {
-        let data = JobData::default();
+        let data = PolicyData::default();
         for policy in policies.iter() {
             policy.init(data.clone());
         }
@@ -83,12 +80,11 @@ impl Job {
             JobId::default(),
             Utc::now(),
             SerializedJobImpl::from_job_impl(r#job_impl).map_err(|_| Error::BuildingJobFailed)?,
-            policies.iter().map(|p| p.name()).collect::<Vec<_>>(),
-            data,
+            Policies::new(policies.iter().map(|p| p.name()).collect::<Vec<_>>(), data),
         ))
     }
 
-    pub fn update_data(&mut self, data: JobData) {
-        self.data = data;
+    pub fn update_policies(&mut self, policies: Policies) {
+        self.policies = policies;
     }
 }

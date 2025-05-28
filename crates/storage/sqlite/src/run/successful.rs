@@ -58,7 +58,7 @@ SELECT
     finished_at,
     report
 FROM {}
-WHERE run_id = $1
+WHERE run_id = ?
 ",
             self.settings.successful_run_table_name,
         ))
@@ -98,7 +98,7 @@ INSERT INTO {} (
     finished_at,
     report
 )
-VALUES ($1, $2, $3, $4, $5)
+VALUES (?, ?, ?, ?, ?)
 ",
             self.settings.successful_run_table_name,
         ))

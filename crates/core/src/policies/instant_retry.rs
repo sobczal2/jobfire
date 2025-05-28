@@ -1,17 +1,14 @@
-use std::{marker::PhantomData, sync::Arc};
-
-use log::error;
-
 use crate::domain::{
     job::{
         context::{Context, ContextData},
-        data::JobData,
         error::JobError,
         r#impl::SerializedJobImpl,
-        policy::{Policy, PolicyName},
+        policy::{Policy, PolicyData, PolicyName},
     },
     run::job_actions::RunFn,
 };
+use log::error;
+use std::{marker::PhantomData, sync::Arc};
 
 #[derive(Clone)]
 pub struct InstantRetryPolicy<TData: ContextData> {
@@ -22,17 +19,21 @@ pub struct InstantRetryPolicy<TData: ContextData> {
 
 impl<TData: ContextData> Default for InstantRetryPolicy<TData> {
     fn default() -> Self {
-        Self {
-            name: PolicyName::new("jobfire::instant_retry"),
-            max_tries: 5,
-            phantom_data: Default::default(),
-        }
+        Self::new(5)
     }
 }
 
 impl<TData: ContextData> InstantRetryPolicy<TData> {
     fn max_tries_key(&self) -> String {
         format!("{}::MAX_TRIES", self.name())
+    }
+
+    pub fn new(max_tries: u32) -> Self {
+        Self {
+            name: PolicyName::new(&format!("jobfire::instant_retry::{}", max_tries)),
+            max_tries,
+            phantom_data: Default::default(),
+        }
     }
 }
 
@@ -41,11 +42,11 @@ impl<TData: ContextData> Policy<TData> for InstantRetryPolicy<TData> {
         self.name.clone()
     }
 
-    fn init(&self, data: JobData) {
+    fn init(&self, data: PolicyData) {
         data.set(&self.max_tries_key(), self.max_tries).unwrap();
     }
 
-    fn wrap_run(&self, f: RunFn<TData>, data: JobData) -> RunFn<TData> {
+    fn wrap_run(&self, f: RunFn<TData>, data: PolicyData) -> RunFn<TData> {
         let max_tries_key = self.max_tries_key();
         let run: RunFn<TData> = Arc::new(
             move |serialized_job_impl: SerializedJobImpl, job_context: Context<TData>| {

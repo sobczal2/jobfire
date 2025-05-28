@@ -3,7 +3,6 @@ use crate::{
         Job,
         context::{Context, ContextData},
         id::JobId,
-        r#impl::JobImpl,
     },
     runners::{job::JobRunner, on_fail::OnFailRunner, on_success::OnSuccessRunner},
     services::{Services, verify::ServiceMissing},

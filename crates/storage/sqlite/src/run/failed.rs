@@ -57,7 +57,7 @@ SELECT
     finished_at,
     error
 FROM {}
-WHERE run_id = $1",
+WHERE run_id = ?",
             self.settings.failed_run_table_name,
         ))
         .bind(run_id.to_string())
@@ -98,7 +98,7 @@ INSERT INTO {} (
     error
 )
 VALUES
-($1, $2)",
+(?, ?, ?, ?, ?)",
             self.settings.failed_run_table_name,
         ))
         .bind(run.job_id().to_string())

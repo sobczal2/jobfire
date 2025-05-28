@@ -6,7 +6,6 @@ use crate::{
         job::{
             Job,
             context::{Context, ContextData},
-            data::JobData,
             error::{JobError, JobResult},
             id::JobId,
             pending::PendingJob,
@@ -108,7 +107,7 @@ impl<TData: ContextData> JobRunner<TData> {
         self.context
             .get_required_service::<Storage>()
             .job_repo()
-            .update(job.id(), job.data().clone())
+            .update_policies(job.id(), job.policies().clone())
             .await?;
 
         match run_result {
@@ -146,9 +145,9 @@ impl<TData: ContextData> JobRunner<TData> {
     ) -> JobResult<Report> {
         let mut run_fn: RunFn<TData> = job_actions.get_run_fn();
 
-        for policy in job.policies() {
+        for policy_names in job.policies().names() {
             run_fn = policy_registry
-                .wrap_run(policy.clone(), run_fn, job.data().clone())
+                .wrap_run(policy_names.clone(), run_fn, job.policies().data().clone())
                 .map_err(|_| JobError::PolicyNotFound)?;
         }
 

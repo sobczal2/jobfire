@@ -41,7 +41,7 @@ impl RunningJobRepo for SqliteRunningJobRepo {
         }
 
         let result: Option<RGet> = sqlx::query_as(&format!(
-            "SELECT run_id, started_at FROM {} WHERE job_id = $1",
+            "SELECT run_id, started_at FROM {} WHERE job_id = ?",
             self.settings.running_job_table_name,
         ))
         .bind(job_id.to_string())
@@ -70,7 +70,7 @@ impl RunningJobRepo for SqliteRunningJobRepo {
         }
 
         sqlx::query(&format!(
-            "INSERT INTO {} (job_id, run_id, started_at) VALUES ($1, $2, $3)",
+            "INSERT INTO {} (job_id, run_id, started_at) VALUES (?, ?, ?)",
             self.settings.running_job_table_name,
         ))
         .bind(job.job_id().to_string())
@@ -90,7 +90,7 @@ impl RunningJobRepo for SqliteRunningJobRepo {
         }
 
         sqlx::query(&format!(
-            "DELETE FROM {} WHERE job_id == $1",
+            "DELETE FROM {} WHERE job_id = ?",
             self.settings.running_job_table_name
         ))
         .bind(job_id.to_string())

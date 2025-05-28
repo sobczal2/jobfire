@@ -3,7 +3,7 @@ use jobfire_core::{
     managers::job_manager::JobManager,
     storage::memory::AddMemoryStorageService,
 };
-use jobfire_ephemeral::{AddEphemeralExtension, RegisterEphemeralJob, ScheduleEphemeralJob};
+use jobfire_ephemeral::{AddEphemeralExtension, ScheduleEphemeralJob};
 use simple_logger::SimpleLogger;
 use tokio::{signal::ctrl_c, time::sleep};
 

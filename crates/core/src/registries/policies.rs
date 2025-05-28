@@ -2,8 +2,7 @@ use crate::{
     domain::{
         job::{
             context::ContextData,
-            data::JobData,
-            policy::{Policy, PolicyName},
+            policy::{Policy, PolicyData, PolicyName},
         },
         run::job_actions::RunFn,
     },
@@ -40,7 +39,7 @@ impl<TData: ContextData> PolicyRegistry<TData> {
         &self,
         name: PolicyName,
         f: RunFn<TData>,
-        data: JobData,
+        data: PolicyData,
     ) -> Result<RunFn<TData>> {
         Ok(self
             .policies

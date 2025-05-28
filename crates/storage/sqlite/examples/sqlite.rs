@@ -11,7 +11,7 @@ use jobfire_core::{
     managers::job_manager::JobManager,
     policies::instant_retry::InstantRetryPolicy,
     registries::{job_actions::JobActionsRegistryBuilder, policies::PolicyRegistryBuilder},
-    storage::{AddStorageService, memory::AddMemoryStorageService},
+    storage::AddStorageService,
 };
 use jobfire_storage_sqlite::SqliteStorage;
 use serde::{Deserialize, Serialize};
