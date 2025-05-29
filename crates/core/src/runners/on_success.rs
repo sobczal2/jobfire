@@ -10,11 +10,13 @@ use crate::{
         run::successful::SuccessfulRun,
     },
     registries::job_actions::JobActionsRegistry,
-    services::verify::{ServiceMissing, VerifyService},
+    services::{
+        time::{AnyClock, Clock},
+        verify::{ServiceMissing, VerifyService},
+    },
     storage::{self, Storage},
     verify_services,
 };
-use chrono::Utc;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -57,7 +59,7 @@ impl<TData: ContextData> VerifyService for OnSuccessRunner<TData> {
         &self,
         services: &crate::services::Services,
     ) -> std::result::Result<(), ServiceMissing> {
-        verify_services!(services, JobActionsRegistry<TData>, Storage);
+        verify_services!(services, JobActionsRegistry<TData>, Storage, AnyClock);
         Ok(())
     }
 }
@@ -82,11 +84,12 @@ impl<TData: ContextData> OnSuccessRunner<TData> {
     }
 
     async fn run_internal(&self, input: &OnSuccessRunnerInput) -> Result<()> {
+        let now = self.context.get_required_service::<AnyClock>().utc_now();
         let successful_run = SuccessfulRun::new(
             input.running_job.run_id(),
             input.job.id(),
             input.pending_job.scheduled_at(),
-            Utc::now(),
+            now,
             input.report.clone(),
         );
 

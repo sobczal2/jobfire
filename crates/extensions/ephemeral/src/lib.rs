@@ -15,7 +15,10 @@ use jobfire_core::{
         report::Report,
     },
     managers::{self, job_manager::JobManager},
-    services::Services,
+    services::{
+        Services,
+        time::{AnyClock, Clock},
+    },
 };
 
 pub mod ephemeral_fn_registry;
@@ -53,31 +56,6 @@ pub trait ScheduleEphemeralJob<TData: ContextData> {
         FOnFail: Fn(Context<TData>) -> FutOnFail + Clone + Send + Sync + 'static,
         FutOnFail: Future<Output = ()> + Send + 'static;
 
-    async fn schedule_ephemeral_job_now<
-        FRun,
-        FutRun,
-        FOnSuccess,
-        FutOnSuccess,
-        FOnFail,
-        FutOnFail,
-    >(
-        &self,
-        run_closure: FRun,
-        on_success_closure: FOnSuccess,
-        on_fail_closure: FOnFail,
-    ) -> managers::job_manager::Result<JobId>
-    where
-        FRun: Fn(Context<TData>) -> FutRun + Clone + Send + Sync + 'static,
-        FutRun: Future<Output = JobResult<Report>> + Send + 'static,
-        FOnSuccess: Fn(Context<TData>) -> FutOnSuccess + Clone + Send + Sync + 'static,
-        FutOnSuccess: Future<Output = ()> + Send + 'static,
-        FOnFail: Fn(Context<TData>) -> FutOnFail + Clone + Send + Sync + 'static,
-        FutOnFail: Future<Output = ()> + Send + 'static,
-    {
-        self.schedule_ephemeral_job(run_closure, on_success_closure, on_fail_closure, Utc::now())
-            .await
-    }
-
     async fn schedule_simple_ephemeral_job<F, Fut>(
         &self,
         run_closure: F,
@@ -88,18 +66,6 @@ pub trait ScheduleEphemeralJob<TData: ContextData> {
         Fut: Future<Output = JobResult<Report>> + Send + 'static,
     {
         self.schedule_ephemeral_job(run_closure, async |_| {}, async |_| {}, at)
-            .await
-    }
-
-    async fn schedule_simple_ephemeral_job_now<F, Fut>(
-        &self,
-        run_closure: F,
-    ) -> managers::job_manager::Result<JobId>
-    where
-        F: Fn(Context<TData>) -> Fut + Clone + Send + Sync + 'static,
-        Fut: Future<Output = JobResult<Report>> + Send + 'static,
-    {
-        self.schedule_simple_ephemeral_job(run_closure, Utc::now())
             .await
     }
 }
@@ -156,8 +122,10 @@ impl<TData: ContextData> ScheduleEphemeralJob<TData> for JobManager<TData> {
             .await
             .map_err(|e| managers::job_manager::Error::InternalError(e.to_string()))?;
 
+        let now = self.context().get_required_service::<AnyClock>().utc_now();
+
         self.schedule(
-            Job::from_impl::<TData>(ephemeral_job_impl, Vec::new())
+            Job::from_impl::<TData>(ephemeral_job_impl, now, Vec::new())
                 .map_err(|e| managers::job_manager::Error::InternalError(e.to_string()))?,
             at,
         )

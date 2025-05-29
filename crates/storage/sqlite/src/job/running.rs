@@ -64,7 +64,7 @@ impl RunningJobRepo for SqliteRunningJobRepo {
     }
 
     async fn add(&self, job: RunningJob) -> storage::error::Result<()> {
-        let existing_job = self.get(job.job_id()).await?;
+        let existing_job = self.get(&job.job_id()).await?;
         if existing_job.is_some() {
             return Err(storage::error::Error::AlreadyExists);
         }
@@ -130,7 +130,7 @@ mod tests {
 
         repo.add(job.clone()).await.unwrap();
 
-        let retrieved = repo.get(job.job_id()).await.unwrap().unwrap();
+        let retrieved = repo.get(&job.job_id()).await.unwrap().unwrap();
         assert_eq!(retrieved.job_id(), job.job_id());
         assert_eq!(retrieved.run_id(), job.run_id());
         assert_eq!(retrieved.started_at(), job.started_at());
@@ -168,7 +168,7 @@ mod tests {
 
         repo.add(job.clone()).await.unwrap();
 
-        let retrieved = repo.get(job.job_id()).await.unwrap().unwrap();
+        let retrieved = repo.get(&job.job_id()).await.unwrap().unwrap();
         assert_eq!(retrieved.job_id(), job.job_id());
         assert_eq!(retrieved.run_id(), job.run_id());
         assert_eq!(retrieved.started_at(), job.started_at());
@@ -200,12 +200,12 @@ mod tests {
 
         repo.add(job.clone()).await.unwrap();
 
-        let deleted = repo.delete(job.job_id()).await.unwrap();
+        let deleted = repo.delete(&job.job_id()).await.unwrap();
         assert_eq!(deleted.job_id(), job.job_id());
         assert_eq!(deleted.run_id(), job.run_id());
         assert_eq!(deleted.started_at(), job.started_at());
 
-        let result = repo.get(job.job_id()).await.unwrap();
+        let result = repo.get(&job.job_id()).await.unwrap();
         assert!(result.is_none());
     }
 

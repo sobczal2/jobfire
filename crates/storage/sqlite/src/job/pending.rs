@@ -59,7 +59,7 @@ impl PendingJobRepo for SqlitePendingJobRepo {
     }
 
     async fn add(&self, job: PendingJob) -> storage::error::Result<()> {
-        let existing_job = self.get(job.job_id()).await?;
+        let existing_job = self.get(&job.job_id()).await?;
         if existing_job.is_some() {
             return Err(storage::error::Error::AlreadyExists);
         }
@@ -127,7 +127,7 @@ impl PendingJobRepo for SqlitePendingJobRepo {
             None => return Ok(None),
         };
 
-        self.delete(existing_job.job_id()).await?;
+        self.delete(&existing_job.job_id()).await?;
 
         Ok(Some(existing_job))
     }
@@ -158,7 +158,7 @@ mod tests {
 
         repo.add(job.clone()).await.unwrap();
 
-        let retrieved = repo.get(job.job_id()).await.unwrap().unwrap();
+        let retrieved = repo.get(&job.job_id()).await.unwrap().unwrap();
         assert_eq!(retrieved.job_id(), job.job_id());
         assert_eq!(retrieved.scheduled_at(), job.scheduled_at());
     }
@@ -193,7 +193,7 @@ mod tests {
 
         repo.add(job.clone()).await.unwrap();
 
-        let retrieved = repo.get(job.job_id()).await.unwrap().unwrap();
+        let retrieved = repo.get(&job.job_id()).await.unwrap().unwrap();
         assert_eq!(retrieved.job_id(), job.job_id());
         assert_eq!(retrieved.scheduled_at(), job.scheduled_at());
     }
@@ -223,11 +223,11 @@ mod tests {
 
         repo.add(job.clone()).await.unwrap();
 
-        let deleted = repo.delete(job.job_id()).await.unwrap();
+        let deleted = repo.delete(&job.job_id()).await.unwrap();
         assert_eq!(deleted.job_id(), job.job_id());
         assert_eq!(deleted.scheduled_at(), job.scheduled_at());
 
-        let result = repo.get(job.job_id()).await.unwrap();
+        let result = repo.get(&job.job_id()).await.unwrap();
         assert!(result.is_none());
     }
 
@@ -271,7 +271,7 @@ mod tests {
         let result = repo.pop_scheduled(before).await.unwrap();
         assert!(result.is_none());
 
-        let retrieved = repo.get(job.job_id()).await.unwrap();
+        let retrieved = repo.get(&job.job_id()).await.unwrap();
         assert!(retrieved.is_some());
     }
 
@@ -293,7 +293,7 @@ mod tests {
         assert_eq!(popped.job_id(), job.job_id());
         assert_eq!(popped.scheduled_at(), job.scheduled_at());
 
-        let retrieved = repo.get(job.job_id()).await.unwrap();
+        let retrieved = repo.get(&job.job_id()).await.unwrap();
         assert!(retrieved.is_none());
     }
 

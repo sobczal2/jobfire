@@ -84,7 +84,7 @@ WHERE run_id = ?
     }
 
     async fn add(&self, run: SuccessfulRun) -> storage::error::Result<()> {
-        let existing = self.get(run.run_id()).await?;
+        let existing = self.get(&run.run_id()).await?;
         if existing.is_some() {
             return Err(storage::error::Error::AlreadyExists);
         }

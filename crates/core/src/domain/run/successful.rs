@@ -39,4 +39,16 @@ impl SuccessfulRun {
     pub fn job_id(&self) -> JobId {
         self.job_id
     }
+
+    pub fn scheduled_at(&self) -> DateTime<Utc> {
+        self.scheduled_at
+    }
+
+    pub fn finished_at(&self) -> DateTime<Utc> {
+        self.finished_at
+    }
+
+    pub fn report(&self) -> &Report {
+        &self.report
+    }
 }

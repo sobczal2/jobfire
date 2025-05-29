@@ -10,11 +10,13 @@ use crate::{
         run::failed::FailedRun,
     },
     registries::job_actions::JobActionsRegistry,
-    services::verify::{ServiceMissing, VerifyService},
+    services::{
+        time::{AnyClock, Clock},
+        verify::{ServiceMissing, VerifyService},
+    },
     storage::{self, Storage},
     verify_services,
 };
-use chrono::Utc;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -85,11 +87,12 @@ impl<TData: ContextData> OnFailRunner<TData> {
     }
 
     async fn run_internal(&self, input: &OnFailRunnerInput) -> Result<()> {
+        let now = self.context.get_required_service::<AnyClock>().utc_now();
         let failed_run = FailedRun::new(
             input.running_job.run_id(),
             input.job.id(),
             input.pending_job.scheduled_at(),
-            Utc::now(),
+            now,
             input.error.clone(),
         );
 

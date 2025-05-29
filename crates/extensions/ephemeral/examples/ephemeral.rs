@@ -1,3 +1,4 @@
+use chrono::Utc;
 use jobfire_core::{
     domain::job::{context::EmptyContextData, report::Report},
     managers::job_manager::JobManager,
@@ -22,11 +23,14 @@ async fn main() {
 
     for i in 0..100 {
         let _job_id = manager
-            .schedule_simple_ephemeral_job_now(move |_| async move {
-                sleep(std::time::Duration::from_secs(1)).await;
-                log::info!("hello from ephemeral job: {}", i);
-                Ok(Report::new())
-            })
+            .schedule_simple_ephemeral_job(
+                move |_| async move {
+                    sleep(std::time::Duration::from_secs(1)).await;
+                    log::info!("hello from ephemeral job: {}", i);
+                    Ok(Report::new())
+                },
+                Utc::now(),
+            )
             .await
             .unwrap();
     }

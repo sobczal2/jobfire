@@ -19,11 +19,14 @@ use crate::{
         },
     },
     registries::{job_actions::JobActionsRegistry, policies::PolicyRegistry},
-    services::verify::{ServiceMissing, VerifyService},
+    services::{
+        time::{AnyClock, Clock},
+        verify::{ServiceMissing, VerifyService},
+    },
     storage::{self, Storage},
     verify_services,
 };
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -81,7 +84,8 @@ impl<TData: ContextData> JobRunner<TData> {
 
     async fn run_internal(&self, pending_job: PendingJob) -> Result<()> {
         let job = self.get_job(&pending_job.job_id()).await?;
-        self.save_running_job(&job).await?;
+        let now = self.context.get_required_service::<AnyClock>().utc_now();
+        self.save_running_job(&job, now).await?;
 
         let job_actions = self
             .context
@@ -152,8 +156,8 @@ impl<TData: ContextData> JobRunner<TData> {
         run_fn(job.r#impl().clone(), self.context.clone()).await
     }
 
-    async fn save_running_job(&self, job: &Job) -> Result<()> {
-        let running_job = RunningJob::new(job.id(), RunId::default(), Utc::now());
+    async fn save_running_job(&self, job: &Job, now: DateTime<Utc>) -> Result<()> {
+        let running_job = RunningJob::new(job.id(), RunId::default(), now);
         self.context
             .get_required_service::<Storage>()
             .running_job_repo()

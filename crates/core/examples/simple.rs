@@ -116,7 +116,12 @@ async fn main() {
     ];
 
     for (job_impl, at) in jobs.into_iter() {
-        let job = Job::from_impl(job_impl, vec![Box::new(InstantRetryPolicy::default())]).unwrap();
+        let job = Job::from_impl(
+            job_impl,
+            Utc::now(),
+            vec![Box::new(InstantRetryPolicy::default())],
+        )
+        .unwrap();
         manager.schedule(job, at).await.unwrap();
     }
 

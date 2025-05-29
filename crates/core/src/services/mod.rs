@@ -1,3 +1,4 @@
+pub mod time;
 pub mod verify;
 
 use std::{

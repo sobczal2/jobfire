@@ -6,7 +6,11 @@ use crate::{
         id::JobId,
     },
     runners::{job::JobRunner, on_fail::OnFailRunner, on_success::OnSuccessRunner},
-    services::{Services, verify::ServiceMissing},
+    services::{
+        Services,
+        time::{AnyClock, SystemClock},
+        verify::ServiceMissing,
+    },
     storage::{self, Storage},
     util::r#async::poll_predicate,
     verify_services,
@@ -82,9 +86,8 @@ impl<TData: ContextData> JobManager<TData> {
 
     fn start(context: Context<TData>) -> Self {
         let job_worker_settings = context.get_required_service::<JobWorkerSettings>();
-        let storage = context.get_required_service::<Storage>();
         let job_runner = context.get_required_service::<JobRunner<TData>>();
-        let job_worker = JobWorker::new(job_worker_settings, storage.clone(), job_runner.clone());
+        let job_worker = JobWorker::new(job_worker_settings, context.clone(), job_runner.clone());
         let job_worker_handle = job_worker.start();
 
         log::info!("JobfireManager started");
@@ -151,7 +154,8 @@ impl<TData: ContextData> JobManager<TData> {
 
 fn add_default_services<TData: ContextData>(context: &Context<TData>) {
     let services = context.services();
-    services.add_service_unchecked(JobWorkerSettings::default());
+    services.add_service(AnyClock::new(SystemClock));
+    services.add_service(JobWorkerSettings::default());
     services.add_service(JobRunner::new(context.clone()));
     services.add_service(OnSuccessRunner::new(context.clone()));
     services.add_service(OnFailRunner::new(context.clone()));

@@ -69,21 +69,8 @@ impl Job {
         self.id
     }
 
-    /// Function to create a job from custom job implementation
-    pub fn from_impl<TData: ContextData>(
-        job_impl: impl JobImpl<TData>,
-        policies: Vec<Box<dyn Policy<TData>>>,
-    ) -> Result<Self> {
-        let data = PolicyData::default();
-        for policy in policies.iter() {
-            policy.init(data.clone());
-        }
-        Ok(Self::new(
-            JobId::default(),
-            Utc::now(),
-            SerializedJobImpl::from_job_impl(r#job_impl).map_err(|_| Error::BuildingJobFailed)?,
-            Policies::new(policies.iter().map(|p| p.name()).collect::<Vec<_>>(), data),
-        ))
+    pub fn created_at(&self) -> DateTime<Utc> {
+        self.created_at
     }
 
     pub fn policies(&self) -> &Policies {
@@ -92,6 +79,24 @@ impl Job {
 
     pub fn r#impl(&self) -> &SerializedJobImpl {
         &self.r#impl
+    }
+
+    /// Function to create a job from custom job implementation
+    pub fn from_impl<TData: ContextData>(
+        job_impl: impl JobImpl<TData>,
+        now: DateTime<Utc>,
+        policies: Vec<Box<dyn Policy<TData>>>,
+    ) -> Result<Self> {
+        let data = PolicyData::default();
+        for policy in policies.iter() {
+            policy.init(data.clone());
+        }
+        Ok(Self::new(
+            JobId::default(),
+            now,
+            SerializedJobImpl::from_job_impl(r#job_impl).map_err(|_| Error::BuildingJobFailed)?,
+            Policies::new(policies.iter().map(|p| p.name()).collect::<Vec<_>>(), data),
+        ))
     }
 
     pub fn update_policies(&mut self, policies: Policies) {

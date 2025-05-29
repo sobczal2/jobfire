@@ -78,7 +78,7 @@ impl JobRepo for SqliteJobRepo {
     }
 
     async fn add(&self, job: Job) -> storage::error::Result<()> {
-        if self.get(job.id()).await?.is_some() {
+        if self.get(&job.id()).await?.is_some() {
             return Err(storage::error::Error::AlreadyExists);
         }
 

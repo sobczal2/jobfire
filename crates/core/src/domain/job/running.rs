@@ -45,4 +45,8 @@ impl RunningJob {
     pub fn run_id(&self) -> RunId {
         self.run_id
     }
+
+    pub fn started_at(&self) -> DateTime<Utc> {
+        self.started_at
+    }
 }

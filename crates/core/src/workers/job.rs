@@ -1,4 +1,4 @@
-use chrono::{Duration, Utc};
+use chrono::{DateTime, Duration, Utc};
 use std::sync::Arc;
 use thiserror::Error;
 use tokio::{
@@ -7,8 +7,16 @@ use tokio::{
 };
 
 use crate::{
-    domain::job::{context::ContextData, pending::PendingJob},
+    domain::job::{
+        context::{Context, ContextData},
+        pending::PendingJob,
+    },
     runners::job::JobRunner,
+    services::{
+        Services,
+        time::{AnyClock, Clock},
+        verify::{ServiceMissing, VerifyService},
+    },
     storage::{self, Storage},
 };
 
@@ -69,6 +77,12 @@ pub struct JobWorkerSettings {
     command_channel_size: usize,
 }
 
+impl VerifyService for JobWorkerSettings {
+    fn verify(&self, _services: &Services) -> std::result::Result<(), ServiceMissing> {
+        Ok(())
+    }
+}
+
 impl JobWorkerSettings {
     pub fn new(poll_rate: Duration, command_channel_size: usize) -> Result<Self> {
         if poll_rate < Duration::zero() {
@@ -100,7 +114,7 @@ pub enum State {
 
 pub(crate) struct JobWorker<TData: ContextData> {
     settings: JobWorkerSettings,
-    storage: Storage,
+    context: Context<TData>,
     job_runner: JobRunner<TData>,
     state: Arc<RwLock<State>>,
 }
@@ -108,12 +122,12 @@ pub(crate) struct JobWorker<TData: ContextData> {
 impl<TData: ContextData> JobWorker<TData> {
     pub fn new(
         settings: JobWorkerSettings,
-        storage: Storage,
+        context: Context<TData>,
         job_runner: JobRunner<TData>,
     ) -> Self {
         Self {
             settings,
-            storage,
+            context,
             job_runner,
             state: Arc::new(RwLock::new(State::Stopped)),
         }
@@ -171,15 +185,16 @@ impl<TData: ContextData> JobWorker<TData> {
         Ok(())
     }
 
-    async fn get_next_pending_job(&self) -> Result<PendingJob> {
+    async fn get_next_pending_job(&self, now: DateTime<Utc>) -> Result<PendingJob> {
         let mut interval = time::interval(self.settings.poll_rate.to_std().unwrap());
         loop {
             interval.tick().await;
 
             match self
-                .storage
+                .context
+                .get_required_service::<Storage>()
                 .pending_job_repo()
-                .pop_scheduled(Utc::now())
+                .pop_scheduled(now)
                 .await?
             {
                 Some(pending_job) => return Ok(pending_job),
@@ -215,6 +230,8 @@ impl<TData: ContextData> JobWorker<TData> {
             log::trace!("JobWorker started");
             self.write_state(State::Started).await;
 
+            let now = self.context.get_required_service::<AnyClock>().utc_now();
+
             tokio::select! {
                 command = self.get_next_command(&mut rx) => {
                     match command {
@@ -227,7 +244,7 @@ impl<TData: ContextData> JobWorker<TData> {
                         Err(error) => log::error!("error ocurred: {:?}", error),
                     }
                 }
-                pending_job = self.get_next_pending_job() => {
+                pending_job = self.get_next_pending_job(now) => {
                     match pending_job {
                         Ok(pending_job) => self.handle_pending_job(pending_job).await,
                         Err(error) => log::error!("error ocurred: {:?}", error),

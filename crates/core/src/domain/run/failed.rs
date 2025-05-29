@@ -39,4 +39,16 @@ impl FailedRun {
     pub fn run_id(&self) -> RunId {
         self.run_id
     }
+
+    pub fn scheduled_at(&self) -> DateTime<Utc> {
+        self.scheduled_at
+    }
+
+    pub fn finished_at(&self) -> DateTime<Utc> {
+        self.finished_at
+    }
+
+    pub fn error(&self) -> &JobError {
+        &self.error
+    }
 }
