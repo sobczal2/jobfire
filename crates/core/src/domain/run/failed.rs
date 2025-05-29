@@ -1,5 +1,4 @@
 use chrono::{DateTime, Utc};
-use getset::Getters;
 use serde::{Deserialize, Serialize};
 
 use crate::domain::job::{error::JobError, id::JobId};
@@ -7,8 +6,7 @@ use crate::domain::job::{error::JobError, id::JobId};
 use super::id::RunId;
 
 /// Failed run information. run_id is unique
-#[derive(Clone, Getters, Serialize, Deserialize)]
-#[getset(get = "pub")]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct FailedRun {
     run_id: RunId,
     job_id: JobId,
@@ -32,5 +30,13 @@ impl FailedRun {
             finished_at,
             error,
         }
+    }
+
+    pub fn job_id(&self) -> JobId {
+        self.job_id
+    }
+
+    pub fn run_id(&self) -> RunId {
+        self.run_id
     }
 }

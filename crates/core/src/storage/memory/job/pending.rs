@@ -25,13 +25,13 @@ impl PendingJobRepo for MemoryPendingJobRepo {
             .read()
             .await
             .iter()
-            .find(|job| job.job_id() == job_id)
+            .find(|job| job.job_id() == *job_id)
             .cloned();
         Ok(job)
     }
 
     async fn add(&self, job: PendingJob) -> crate::storage::error::Result<()> {
-        let existing_job = self.get(job.job_id()).await?;
+        let existing_job = self.get(&job.job_id()).await?;
         if existing_job.is_some() {
             return Err(Error::AlreadyExists);
         }
@@ -50,7 +50,7 @@ impl PendingJobRepo for MemoryPendingJobRepo {
             .await
             .iter()
             .enumerate()
-            .find(|(_, job)| job.job_id() == job_id)
+            .find(|(_, job)| job.job_id() == *job_id)
             .map(|(index, _)| index);
 
         match existing_index {
@@ -72,7 +72,7 @@ impl PendingJobRepo for MemoryPendingJobRepo {
             .await
             .iter()
             .enumerate()
-            .find(|(_, job)| *job.scheduled_at() < now)
+            .find(|(_, job)| job.scheduled_at() < now)
             .map(|(i, _)| i);
 
         match existing_index {

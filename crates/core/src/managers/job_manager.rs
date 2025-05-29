@@ -1,3 +1,4 @@
+use super::job_scheduler::{self, JobScheduler};
 use crate::{
     domain::job::{
         Job,
@@ -14,8 +15,6 @@ use crate::{
 use chrono::{DateTime, Duration, Utc};
 use thiserror::Error;
 use tokio::time::interval;
-
-use super::job_scheduler::{self, JobScheduler};
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -115,7 +114,7 @@ impl<TData: ContextData> JobManager<TData> {
     }
 
     pub async fn schedule(&self, job: Job, at: DateTime<Utc>) -> Result<JobId> {
-        let job_id = *job.id();
+        let job_id = job.id();
 
         self.context
             .get_required_service::<JobScheduler>()

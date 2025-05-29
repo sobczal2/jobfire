@@ -1,5 +1,4 @@
 use chrono::{DateTime, Utc};
-use getset::Getters;
 use serde::{Deserialize, Serialize};
 
 use crate::domain::job::{id::JobId, report::Report};
@@ -7,8 +6,7 @@ use crate::domain::job::{id::JobId, report::Report};
 use super::id::RunId;
 
 /// Successful run information. run_id is unique
-#[derive(Clone, Getters, Serialize, Deserialize)]
-#[getset(get = "pub")]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct SuccessfulRun {
     run_id: RunId,
     job_id: JobId,
@@ -32,5 +30,13 @@ impl SuccessfulRun {
             finished_at,
             report,
         }
+    }
+
+    pub fn run_id(&self) -> RunId {
+        self.run_id
+    }
+
+    pub fn job_id(&self) -> JobId {
+        self.job_id
     }
 }

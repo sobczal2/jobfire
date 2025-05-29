@@ -1,20 +1,15 @@
+use super::context::ContextData;
+use crate::domain::run::job_actions::{OnFailFn, OnSuccessFn, RunFn};
+use serde::{de::DeserializeOwned, Deserialize, Deserializer, Serialize, Serializer};
+use serde_json::{from_value, to_value, Value};
 use std::{
     collections::HashMap,
     fmt::Display,
     sync::{Arc, RwLock},
 };
-
-use getset::Getters;
-use serde::{de::DeserializeOwned, Deserialize, Deserializer, Serialize, Serializer};
-use serde_json::{from_value, to_value, Value};
 use thiserror::Error;
 
-use crate::domain::run::job_actions::{OnFailFn, OnSuccessFn, RunFn};
-
-use super::context::ContextData;
-
-#[derive(Getters, Clone, Debug, Serialize, Deserialize)]
-#[getset(get = "pub")]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Policies {
     names: Vec<PolicyName>,
     data: PolicyData,
@@ -23,6 +18,14 @@ pub struct Policies {
 impl Policies {
     pub fn new(names: Vec<PolicyName>, data: PolicyData) -> Self {
         Self { names, data }
+    }
+
+    pub fn names(&self) -> &Vec<PolicyName> {
+        &self.names
+    }
+
+    pub fn data(&self) -> PolicyData {
+        self.data.clone()
     }
 }
 

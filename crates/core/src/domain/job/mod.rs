@@ -1,6 +1,5 @@
 use chrono::{DateTime, Utc};
 use context::ContextData;
-use getset::Getters;
 use id::JobId;
 use policy::{Policies, Policy, PolicyData};
 use r#impl::{JobImpl, SerializedJobImpl};
@@ -29,8 +28,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// This structure represents a complete job definition that can be stored
 /// in a persistent storage. It contains all the information needed to
 /// recreate and execute the job at runtime.
-#[derive(Clone, Getters, Serialize, Deserialize)]
-#[getset(get = "pub")]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Job {
     /// Unique identifier for this job.
     ///
@@ -48,7 +46,7 @@ pub struct Job {
     /// the actual job functionality is recreated from this serialized data.
     r#impl: SerializedJobImpl,
 
-    /// Policy names of policies for a job in the order of wraping
+    /// Policies and policy data invoked for this job
     policies: Policies,
 }
 
@@ -67,6 +65,10 @@ impl Job {
         }
     }
 
+    pub fn id(&self) -> JobId {
+        self.id
+    }
+
     /// Function to create a job from custom job implementation
     pub fn from_impl<TData: ContextData>(
         job_impl: impl JobImpl<TData>,
@@ -82,6 +84,14 @@ impl Job {
             SerializedJobImpl::from_job_impl(r#job_impl).map_err(|_| Error::BuildingJobFailed)?,
             Policies::new(policies.iter().map(|p| p.name()).collect::<Vec<_>>(), data),
         ))
+    }
+
+    pub fn policies(&self) -> &Policies {
+        &self.policies
+    }
+
+    pub fn r#impl(&self) -> &SerializedJobImpl {
+        &self.r#impl
     }
 
     pub fn update_policies(&mut self, policies: Policies) {

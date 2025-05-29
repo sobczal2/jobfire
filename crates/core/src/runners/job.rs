@@ -1,6 +1,7 @@
-use chrono::Utc;
-use thiserror::Error;
-
+use super::{
+    on_fail::{OnFailRunner, OnFailRunnerInput},
+    on_success::{OnSuccessRunner, OnSuccessRunnerInput},
+};
 use crate::{
     domain::{
         job::{
@@ -22,11 +23,8 @@ use crate::{
     storage::{self, Storage},
     verify_services,
 };
-
-use super::{
-    on_fail::{OnFailRunner, OnFailRunnerInput},
-    on_success::{OnSuccessRunner, OnSuccessRunnerInput},
-};
+use chrono::Utc;
+use thiserror::Error;
 
 #[derive(Error, Debug)]
 enum Error {
@@ -82,7 +80,7 @@ impl<TData: ContextData> JobRunner<TData> {
     }
 
     async fn run_internal(&self, pending_job: PendingJob) -> Result<()> {
-        let job = self.get_job(pending_job.job_id()).await?;
+        let job = self.get_job(&pending_job.job_id()).await?;
         self.save_running_job(&job).await?;
 
         let job_actions = self
@@ -101,13 +99,13 @@ impl<TData: ContextData> JobRunner<TData> {
             .context
             .get_required_service::<Storage>()
             .running_job_repo()
-            .delete(job.id())
+            .delete(&job.id())
             .await?;
 
         self.context
             .get_required_service::<Storage>()
             .job_repo()
-            .update_policies(job.id(), job.policies().clone())
+            .update_policies(&job.id(), job.policies().clone())
             .await?;
 
         match run_result {
@@ -155,7 +153,7 @@ impl<TData: ContextData> JobRunner<TData> {
     }
 
     async fn save_running_job(&self, job: &Job) -> Result<()> {
-        let running_job = RunningJob::new(*job.id(), RunId::default(), Utc::now());
+        let running_job = RunningJob::new(job.id(), RunId::default(), Utc::now());
         self.context
             .get_required_service::<Storage>()
             .running_job_repo()

@@ -1,6 +1,3 @@
-use chrono::{DateTime, Utc};
-use thiserror::Error;
-
 use crate::{
     domain::job::{self, id::JobId, pending::PendingJob},
     services::{
@@ -10,6 +7,8 @@ use crate::{
     storage::{self, Storage},
     verify_services,
 };
+use chrono::{DateTime, Utc};
+use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -52,14 +51,15 @@ impl JobScheduler {
     pub async fn schedule(&self, job: job::Job, scheduled_at: DateTime<Utc>) -> Result<()> {
         let storage = self.services.get_required_service::<Storage>();
 
-        let pending_job = PendingJob::new(*job.id(), scheduled_at);
-        let existing_job = storage.job_repo().get(job.id()).await?;
+        let pending_job = PendingJob::new(job.id(), scheduled_at);
+        let existing_job = storage.job_repo().get(&job.id()).await?;
         if existing_job.is_some() {
             return Err(Error::AlreadyScheduled);
         }
 
         storage.job_repo().add(job).await?;
         storage.pending_job_repo().add(pending_job).await?;
+
         Ok(())
     }
 

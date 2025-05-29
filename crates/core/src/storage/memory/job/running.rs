@@ -24,13 +24,13 @@ impl RunningJobRepo for MemoryRunningJobRepo {
             .read()
             .await
             .iter()
-            .find(|job| job.job_id() == job_id)
+            .find(|job| job.job_id() == *job_id)
             .cloned();
         Ok(job)
     }
 
     async fn add(&self, job: RunningJob) -> crate::storage::error::Result<()> {
-        let existing_job = self.get(job.job_id()).await?;
+        let existing_job = self.get(&job.job_id()).await?;
         if existing_job.is_some() {
             return Err(Error::AlreadyExists);
         }
@@ -49,7 +49,7 @@ impl RunningJobRepo for MemoryRunningJobRepo {
             .await
             .iter()
             .enumerate()
-            .find(|(_, job)| job.job_id() == job_id)
+            .find(|(_, job)| job.job_id() == *job_id)
             .map(|(index, _)| index);
 
         match existing_index {

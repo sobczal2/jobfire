@@ -1,6 +1,3 @@
-use chrono::Utc;
-use thiserror::Error;
-
 use crate::{
     domain::{
         job::{
@@ -17,6 +14,8 @@ use crate::{
     storage::{self, Storage},
     verify_services,
 };
+use chrono::Utc;
+use thiserror::Error;
 
 #[derive(Error, Debug)]
 enum Error {
@@ -84,9 +83,9 @@ impl<TData: ContextData> OnSuccessRunner<TData> {
 
     async fn run_internal(&self, input: &OnSuccessRunnerInput) -> Result<()> {
         let successful_run = SuccessfulRun::new(
-            *input.running_job.run_id(),
-            *input.job.id(),
-            *input.pending_job.scheduled_at(),
+            input.running_job.run_id(),
+            input.job.id(),
+            input.pending_job.scheduled_at(),
             Utc::now(),
             input.report.clone(),
         );

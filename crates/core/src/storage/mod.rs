@@ -3,15 +3,13 @@ pub mod job;
 pub mod memory;
 pub mod run;
 
-use getset::Getters;
 use job::{JobRepo, PendingJobRepo, RunningJobRepo};
 use run::{FailedRunRepo, SuccessfulRunRepo};
 use std::sync::Arc;
 
 use crate::services::{verify::VerifyService, Services};
 
-#[derive(Clone, Getters)]
-#[getset(get = "pub")]
+#[derive(Clone)]
 pub struct Storage {
     inner: Arc<StorageInner>,
 }

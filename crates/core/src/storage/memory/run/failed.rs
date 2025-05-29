@@ -24,13 +24,13 @@ impl FailedRunRepo for MemoryFailedRunRepo {
             .read()
             .await
             .iter()
-            .find(|job| job.run_id() == run_id)
+            .find(|job| job.run_id() == *run_id)
             .cloned();
         Ok(job)
     }
 
     async fn add(&self, run: FailedRun) -> crate::storage::error::Result<()> {
-        let existing_job = self.get(run.run_id()).await?;
+        let existing_job = self.get(&run.run_id()).await?;
         if existing_job.is_some() {
             return Err(Error::AlreadyExists);
         }

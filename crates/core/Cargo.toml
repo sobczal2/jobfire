@@ -6,12 +6,9 @@ edition = "2024"
 [dependencies]
 log.workspace = true
 uuid.workspace = true
-cron.workspace = true
 chrono.workspace = true
 async-trait.workspace = true
 tokio.workspace = true
-getset.workspace = true
-quick-macros.workspace = true
 thiserror.workspace = true
 serde.workspace = true
 serde_json.workspace = true

@@ -23,13 +23,13 @@ impl JobRepo for MemoryJobRepo {
             .read()
             .unwrap()
             .iter()
-            .find(|job| job.id() == job_id)
+            .find(|job| job.id() == *job_id)
             .cloned();
         Ok(job)
     }
 
     async fn add(&self, job: Job) -> crate::storage::error::Result<()> {
-        let existing_job = self.get(job.id()).await?;
+        let existing_job = self.get(&job.id()).await?;
         if existing_job.is_some() {
             return Err(Error::AlreadyExists);
         }
@@ -45,7 +45,7 @@ impl JobRepo for MemoryJobRepo {
             .unwrap()
             .iter()
             .enumerate()
-            .find(|(_, job)| job.id() == job_id)
+            .find(|(_, job)| job.id() == *job_id)
             .map(|(index, _)| index);
 
         match existing_index {
@@ -63,7 +63,7 @@ impl JobRepo for MemoryJobRepo {
         policies: Policies,
     ) -> crate::storage::error::Result<()> {
         let mut elements = self.elements.write().unwrap();
-        let job = elements.iter_mut().find(|job| job.id() == job_id);
+        let job = elements.iter_mut().find(|job| job.id() == *job_id);
         if let Some(job) = job {
             job.update_policies(policies);
         }

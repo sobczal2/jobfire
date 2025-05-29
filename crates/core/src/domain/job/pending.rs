@@ -1,6 +1,5 @@
 use super::id::JobId;
 use chrono::{DateTime, Utc};
-use getset::Getters;
 use serde::{Deserialize, Serialize};
 
 /// Job that is scheduled for execution but not yet running.
@@ -8,8 +7,7 @@ use serde::{Deserialize, Serialize};
 /// This structure represents a job that has been scheduled for future
 /// execution. It contains the minimum information needed to identify
 /// and schedule the job.
-#[derive(Clone, Getters, Serialize, Deserialize, Hash)]
-#[getset(get = "pub")]
+#[derive(Clone, Serialize, Deserialize, Hash)]
 pub struct PendingJob {
     /// Reference to the original job's identifier.
     ///
@@ -30,6 +28,14 @@ impl PendingJob {
             job_id,
             scheduled_at,
         }
+    }
+
+    pub fn job_id(&self) -> JobId {
+        self.job_id
+    }
+
+    pub fn scheduled_at(&self) -> DateTime<Utc> {
+        self.scheduled_at
     }
 
     pub fn reschedule(&mut self, new_scheduled_at: DateTime<Utc>) {

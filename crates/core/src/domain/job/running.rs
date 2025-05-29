@@ -1,5 +1,4 @@
 use chrono::{DateTime, Utc};
-use getset::Getters;
 use serde::{Deserialize, Serialize};
 
 use crate::domain::run::id::RunId;
@@ -10,8 +9,7 @@ use super::id::JobId;
 ///
 /// This structure represents a job that is being executed. It tracks both
 /// the job's identity and the specific execution instance (run).
-#[derive(Clone, Getters, Serialize, Deserialize)]
-#[getset(get = "pub")]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct RunningJob {
     /// Reference to the original job's identifier.
     ///
@@ -38,5 +36,13 @@ impl RunningJob {
             job_id,
             started_at,
         }
+    }
+
+    pub fn job_id(&self) -> JobId {
+        self.job_id
+    }
+
+    pub fn run_id(&self) -> RunId {
+        self.run_id
     }
 }
